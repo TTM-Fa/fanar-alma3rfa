@@ -7,6 +7,8 @@ export async function GET(request) {
   const fileName = searchParams.get("fileName");
   const sessionId = searchParams.get("sessionId");
 
+  console.log(searchParams.toString());
+  
   if (!fileName || !sessionId) {
     return NextResponse.json(
       { success: false, error: "fileName and sessionId are required" },

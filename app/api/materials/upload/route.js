@@ -2,7 +2,7 @@
 import { handleUpload } from "@vercel/blob/client";
 import { NextResponse } from "next/server";
 import { prisma } from "@/utils/database";
-// import { processFile } from "@/utils/fileProcessors";
+import { processFile } from "@/utils/fileProcessors";
 
 export async function POST(request) {
   // Extract sessionId from the URL parameter
@@ -13,16 +13,21 @@ export async function POST(request) {
       { status: 400 }
     );
   }
+  
 
   const body = await request.json();
   console.log("Request body: ", body);
   console.log("Session ID: ", sessionId);
-
+  console.log("REACHED UPLOAD HANDLER");
+   
   try {
     const jsonResponse = await handleUpload({
       body,
       request,
+      
       onBeforeGenerateToken: async (pathname) => {
+        console.log("Entered onBeforeGenerateToken");
+        
         return {
           allowedContentTypes: [
             "application/pdf", // Allow PDFs
@@ -37,6 +42,7 @@ export async function POST(request) {
           tokenPayload: JSON.stringify({ sessionId }), // Pass sessionId in token payload
         };
       },
+      
       onUploadCompleted: async ({ blob, tokenPayload }) => {
         console.log("Blob upload completed", blob);
 
@@ -51,7 +57,8 @@ export async function POST(request) {
 
           // Determine if this is an audio file
           const isAudio = type.startsWith("audio/");
-
+          console.log("HERE WE CHECK");
+          
           // Create the material in the database with initial status
           const material = await prisma.material.create({
             data: {
@@ -63,7 +70,7 @@ export async function POST(request) {
               status: "uploaded", // Initial status before processing
             },
           });
-
+          
           console.log("Material saved to database", material);
 
           // Start processing the file asynchronously

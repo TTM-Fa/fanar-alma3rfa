@@ -1,0 +1,115 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+model StudySession {
+  id          String      @id @default(cuid())
+  title       String
+  description String?
+  subject   String
+  materials   Material[] 
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model Material {
+  id          String      @id @default(cuid())
+  title       String?
+  description String?
+  type        String
+  link        String?
+  fileName    String?
+  rawContent  String?
+  status      String
+  studySessionId String
+  studySession   StudySession @relation(fields: [studySessionId], references: [id])
+  quizzes       Quiz[]
+  flashcardDecks FlashcardDeck[]
+  summaries     Summary[]
+  audioLectures AudioLecture[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model Quiz {
+  id          String      @id @default(cuid())
+  title       String
+  description String?
+  difficulty  String      // easy, medium, hard
+  timeLimit   Int?        // time limit in minutes, null for no limit
+  materialId  String
+  material    Material    @relation(fields: [materialId], references: [id])
+  questions   Question[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model Question {
+  id          String      @id @default(cuid())
+  text        String
+  type        String      // multiple-choice, multi-select, true-false, short-answer
+  options     Json?       // Array of option objects: [{id: string, text: string}]
+  correctAnswer Json      // String for single answer, String[] for multi-select
+  explanation String?
+  quizId      String
+  quiz        Quiz        @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model FlashcardDeck {
+  id          String      @id @default(cuid())
+  title       String
+  description String?
+  materialId  String
+  material    Material    @relation(fields: [materialId], references: [id])
+  flashcards  Flashcard[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model Flashcard {
+  id         String        @id @default(cuid())
+  front      String
+  back       String
+  deckId     String
+  deck       FlashcardDeck @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+}
+
+model Summary {
+  id          String      @id @default(cuid())
+  title       String
+  content     String      @db.Text
+  materialId  String
+  material    Material    @relation(fields: [materialId], references: [id])
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model AudioLecture {
+  id          String      @id @default(cuid())
+  title       String
+  audioUrl    String      // URL to the stored audio file
+  // voice       String      @default("alloy") // Voice used for TTS: alloy, echo, fable, onyx, nova, shimmer
+  // style       String?     // Speaking style (if supported)
+  duration    Int?        // Duration in seconds
+  status      String      @default("processing") // Status: processing, ready, error
+  materialId  String
+  material    Material    @relation(fields: [materialId], references: [id])
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}

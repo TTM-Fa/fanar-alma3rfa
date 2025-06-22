@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/utils/database";
-// import { processFile } from "@/utils/fileProcessors";
+import { processFile } from "@/utils/fileProcessors";
 
 export async function POST(request, { params }) {
   const { materialId } = await params;
