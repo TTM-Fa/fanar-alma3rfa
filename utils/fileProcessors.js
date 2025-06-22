@@ -422,11 +422,12 @@ class PdfProcessor extends FileProcessor {
       "\n}" +
       "\nDO NOT include any text, markdown formatting, or explanation outside the JSON structure. AND DO NOT SUMMARIZE ANYTHING";
       // Split PDF into individual pages
-      const pdfPages = await splitPdf(pdfBuffer);
+      const pdfPages = await this.splitPdf(pdfBuffer);
+
       console.log(`${pdfPages.length} PDF pages created.`);
 
       // Build batch tasks for each page
-      const tasks = await buildBatchTasks(pdfPages);
+      const tasks = await this.buildBatchTasks(pdfPages);
       console.log(`Created ${tasks.length} batch tasks.`);
       // Check if API key is set
       if (!OPENAI_API_KEY) {
@@ -443,11 +444,11 @@ class PdfProcessor extends FileProcessor {
       }
 
       // Upload batch tasks
-      const batchId = await uploadBatchTasks("batch_tasks.jsonl");
+      const batchId = await this.uploadBatchTasks("batch_tasks.jsonl");
       console.log(`Batch uploaded with ID: ${batchId}`);
 
       // Wait for completion
-      const results = await waitForBatchCompletion(
+      const results = await this.waitForBatchCompletion(
         batchId,
         10 * 1000,
         "batch_results.jsonl"
