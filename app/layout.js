@@ -25,7 +25,7 @@ export default function RootLayout({ children }) {
         <Toaster />
         <footer className="m-4 text-center text-sm text-gray-500">
           <p>
-            &copy; {new Date().getFullYear()} StudyBuddy. All rights reserved.
+            &copy; {new Date().getFullYear()} Fanar Al-Ma3rfa. All rights reserved.
           </p>
           <p>
             Made with <span className="text-red-500">♥️</span> by QCRI Interns

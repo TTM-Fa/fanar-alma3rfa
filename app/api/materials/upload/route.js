@@ -39,11 +39,19 @@ export async function POST(request) {
             "audio/mp4",
             "audio/x-wav", // Additional audio formats
           ],
+          addRandomSuffix: true,
           tokenPayload: JSON.stringify({ sessionId }), // Pass sessionId in token payload
         };
       },
       
       onUploadCompleted: async ({ blob, tokenPayload }) => {
+        // wait for 5 seconds before processing the file
+        // await new Promise((resolve) => setTimeout(resolve, 5000));
+        console.log("THIS IS THE LINK", blob.url);
+        // Log the blob information
+        console.log("Blob information:", blob);
+        
+        
         console.log("Blob upload completed", blob);
 
         try {

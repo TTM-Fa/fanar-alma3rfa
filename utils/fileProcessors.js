@@ -1,10 +1,14 @@
 // fileProcessors.js
 import fetch from "node-fetch";
 import { OpenAI } from "openai";
+import { PDFDocument } from "pdf-lib";
+import fs from "node:fs/promises";
+import fsSync from "node:fs";
 
 // Initialize OpenAI client
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: OPENAI_API_KEY, // Make sure to set this environment variable
 });
 
 /**
@@ -40,8 +44,9 @@ class FileProcessor {
    * Download file content from URL
    */
   async downloadFile(url) {
-    console.log(url);
+    // url = "https://uwgm32kt40oar3yw.public.blob.vercel-storage.com/lec-g3kRtkekLpk2dpYN3gWxOHvIm3DX0m.pdf"
     
+
     const response = await fetch(url);
     if (!response.ok) {
       throw new Error(
@@ -75,6 +80,33 @@ class FileProcessor {
   }
 }
 
+const buildClassificationPrompt = (pages) => `
+SYSTEM:
+You are a meticulous document-processing assistant.
+KEEP a page if it looks like substantive content.
+SKIP a page if it is a cover, table of contents, blank, index, ads, license, etc.
+
+Return your response as valid JSON array with the following format:
+[
+  {
+    "index": <number of the page>,
+    "keep": true|false
+  }
+]
+
+USER:
+Here are the page candidates:
+
+${pages
+  .map(
+    (p, index) =>
+      `Page ${index}:\n"""${p.short_description
+        .replace(/\n+/g, " ")
+        .slice(0, 500)} topic of the page: ${p.topic}"""`
+  )
+  .join("\n\n")}
+`;
+
 /**
  * PDF Processor using OpenAI API
  */
@@ -106,38 +138,81 @@ class PdfProcessor extends FileProcessor {
       await this.updateStatus(materialId, "Converting to text", prisma);
       
       // Extract text and generate description in a single API call
-      const { extractedText, description } = await this.processWithOpenAI(
+      const rawResults = await this.processWithOpenAI(
         pdfBuffer
       );
+      console.log(rawResults);
+      
+      // console.log(`Processing completed for ${materialId}, extracted text length: ${results.results?.length} chars`);
 
+      
+      const extractedText = rawResults.map((r) => r.extracted_text || "");
+      const description = rawResults.map((r) => r.short_description || "");
+      // We will filter and merge the description of the pages
+      // to create a more concise and relevant description
+      // Log the extracted text and description for debugging
+      console.log("Extracted Text: \n", extractedText);
+      console.log("Description: \n", description);
 
+      const prompt = buildClassificationPrompt(rawResults);
+      console.log(`Prompt for classification: \n`, prompt);
+            
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0,
+        max_tokens: 4096,
+        response_format: { type: "json_object" },
+      });
+      
 
-      console.log(
-        `Text extracted successfully for ${materialId}, length: ${extractedText.length} chars`
-      );
-      console.log(`Description generated for ${materialId}: ${description}`);
+      let decisions;
+      try {
+        decisions = JSON.parse(completion.choices[0].message.content.trim());
+      } catch (err) {
+        console.error("⚠️  LLM returned invalid JSON:");
+        console.error(completion.choices[0].message.content);
+        throw err;
+      }
+      console.log("Decisions:", decisions);
+      // Filter pages to keep based on LLM decisions
+      const keptIndexes = decisions.result
+        .filter((d) => d.keep)
+        .map((d) => d.index)
+        .sort((a, b) => a - b);
+      console.log("Kept page indexes:", keptIndexes);
+      
+      const mergedText = keptIndexes
+        .map((i) => `<page-${i + 1}>${extractedText[i]}</page-${i + 1}>`)
+        .filter(text => text && text.trim()) // Remove empty/null text
+        .join("\n");
+      
+      const mergedDescription = keptIndexes
+        .map((i) => `<page-${i + 1}>${description[i]}</page-${i + 1}>`)
+        .filter(desc => desc && desc.trim()) // Remove empty/null descriptions
+        .join("\n");
+      
+      const mergedTopic = keptIndexes
+        .map((i) => `<page-${i + 1}>${rawResults[i].topic}</page-${i + 1}>`)
+        .filter(topic => topic && topic.trim()) // Remove empty/null topics
+        .join("\n");
 
-
+      console.log("Merged Text:\n", mergedText); 
+      console.log("Merged Description:\n", mergedDescription);
+      console.log("Merged Topic:\n", mergedTopic);
       
       if (updateProgress) updateProgress(80, "Storing processed content...");
-
-      
-
-      // Here we should do the following
-      // 1- Filter and merge description of the pages in a way that 
-      // - For filter remove unnecessary pages from the raw text
-      // - for merge, we merge the remaining pages and store them on vercel
-        
 
 
       // Save the extracted text and description to the database
       await prisma.material.update({
         where: { id: materialId },
         data: {
-          rawContent: extractedText,
-          description: description,
+          rawContent: mergedText,
+          description: mergedDescription,
+          topic: mergedTopic, // add topic attribute
           status: "Ready", // Use consistent status naming
-        },
+        }
       });
       console.log(`Processing completed for ${materialId}`);
 
@@ -146,8 +221,8 @@ class PdfProcessor extends FileProcessor {
 
       return {
         success: true,
-        text: extractedText,
-        description: description,
+        text: mergedText,
+        description: mergedDescription,
       };
     } catch (error) {
       console.error(`PDF processing error for ${materialId}:`, error);
@@ -206,7 +281,7 @@ class PdfProcessor extends FileProcessor {
    * @param {string} outputFile - Path to save the batch tasks as JSONL
    * @return {Promise<Array>} - Array of task objects
    * */
-  async buildBatchTasks(pdfPages, outputFile = "batch_tasks.jsonl") {
+  async buildBatchTasks(pdfPages, outputFile = "batch_tasks.jsonl", ANALYSIS_SCHEMA, PROMPT) {
     console.log(`Building batch tasks for ${pdfPages.length} pages`);
   
     const tasks = [];
@@ -366,7 +441,7 @@ class PdfProcessor extends FileProcessor {
     console.log(`Monitoring batch ${batchId} for completion...`);
 
     while (true) {
-      const result = await retrieveBatchResults(batchId, outputFile);
+      const result = await this.retrieveBatchResults(batchId, outputFile);
 
       if (result.batch.status === "completed") {
         console.log("Batch processing completed successfully!");
@@ -427,7 +502,7 @@ class PdfProcessor extends FileProcessor {
       console.log(`${pdfPages.length} PDF pages created.`);
 
       // Build batch tasks for each page
-      const tasks = await this.buildBatchTasks(pdfPages);
+      const tasks = await this.buildBatchTasks(pdfPages, "batch_tasks.jsonl", ANALYSIS_SCHEMA, PROMPT);
       console.log(`Created ${tasks.length} batch tasks.`);
       // Check if API key is set
       if (!OPENAI_API_KEY) {
@@ -455,7 +530,17 @@ class PdfProcessor extends FileProcessor {
       );
       console.log(`Processing completed! Results saved to batch_results.jsonl`);
       console.log(`Total results: ${results.results?.length || 0}`);
+      // From inside results => rawResults => we have list of objects, we need extracted_text, short_description, topic
+      const rawResults = results.rawResults;
       
+      // Parse the raw results string into an array of JSON objects
+      const parsedResults = rawResults
+        .trim()
+        .split('\n')
+        .map(line => JSON.parse(line))
+        .map(item => JSON.parse(item.response.body.choices[0].message.content));
+      
+      return parsedResults;
     } catch (error) {
       console.error("Error using OpenAI API:", error);
       throw new Error(

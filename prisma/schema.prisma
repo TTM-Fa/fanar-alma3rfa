@@ -32,6 +32,7 @@ model Material {
   link        String?
   fileName    String?
   rawContent  String?
+  topic       String?
   status      String
   studySessionId String
   studySession   StudySession @relation(fields: [studySessionId], references: [id])
