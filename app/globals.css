@@ -1,26 +1,107 @@
 @import "tailwindcss";
 
+/* Base colors */
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --blue-50: #eff6ff;
+  --blue-500: #3b82f6;
+  --gray-100: #f3f4f6;
+  --gray-200: #e5e7eb;
+  --gray-300: #d1d5db;
+  --gray-400: #9ca3af;
+  --gray-600: #4b5563;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
+/* Dark mode overrides */
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+    --blue-50: #1e3a8a;
+    --blue-500: #60a5fa;
+    --gray-100: #1f2937;
+    --gray-200: #374151;
+    --gray-300: #4b5563;
+    --gray-400: #6b7280;
+    --gray-600: #9ca3af;
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans, system-ui, sans-serif);
+}
+
+/* Inline code highlighting */
+code {
+  background: var(--blue-50);
+  color: var(--blue-500);
+  padding: 0.2em 0.4em;
+  border-radius: 0.25rem;
+  font-family: var(--font-mono, Menlo, monospace);
+}
+
+/* Analysis Results container */
+.analysis-container {
+  background: var(--blue-50);
+  padding: 1rem;
+  border-radius: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+/* Tabs bar */
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.tabs button {
+  padding: 0.5rem 1rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  background: var(--gray-100);
+  color: var(--gray-600);
+  transition: background 0.2s;
+}
+.tabs button.selected {
+  background: var(--blue-500);
+  color: white;
+}
+.tabs button:hover {
+  background: var(--gray-200);
+}
+
+/* Explanation box */
+.explain-box {
+  background: var(--background);
+  border: 1px solid var(--gray-200);
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  overflow-x: auto;
+  white-space: pre-wrap;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+/* keep punctuation on the “inside” of each run when under RTL */
+.prose[dir="rtl"],
+.explain-box[dir="rtl"] {
+  direction: rtl;
+  /* isolate-override treats neutral punctuation as part of surrounding text */
+  unicode-bidi: isolate-override;
+}
+
+/* make the header cells rtl */
+.trace-table-wrapper table th {
+  direction: rtl;
+  text-align: right;
+}
+
+/* force all data cells back to ltr for code/numbers */
+.trace-table-wrapper table td {
+  direction: ltr;
+  text-align: left;
 }
