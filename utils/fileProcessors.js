@@ -4,8 +4,6 @@ import { OpenAI } from "openai";
 import { PDFDocument } from "pdf-lib";
 import fs from "node:fs/promises";
 import fsSync from "node:fs";
-import os from "os";
-import path from "path";
 
 // Initialize OpenAI client
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY
@@ -276,19 +274,15 @@ class PdfProcessor extends FileProcessor {
   
     return pdfPages;
   }
+
   /**
    * Build batch tasks for OpenAI API
    * @param {Array} pdfPages - Array of objects with page number and base64 content
    * @param {string} outputFile - Path to save the batch tasks as JSONL
-   * @return {Promise<Object>} - Object with tasks array and outputFile path
+   * @return {Promise<Array>} - Array of task objects
    * */
-  async buildBatchTasks(pdfPages, outputFile = null, ANALYSIS_SCHEMA, PROMPT) {
+  async buildBatchTasks(pdfPages, outputFile = "batch_tasks.jsonl", ANALYSIS_SCHEMA, PROMPT) {
     console.log(`Building batch tasks for ${pdfPages.length} pages`);
-
-    // If no output file specified, create a temporary one
-    if (!outputFile) {
-      outputFile = path.join(os.tmpdir(), `batch_tasks_${Date.now()}.jsonl`);
-    }
   
     const tasks = [];
   
@@ -331,7 +325,7 @@ class PdfProcessor extends FileProcessor {
     await fs.writeFile(outputFile, jsonlContent);
     console.log(`Saved ${tasks.length} tasks to ${outputFile}`);
   
-    return { tasks, outputFile };
+    return tasks;
   }
   
 
@@ -368,6 +362,7 @@ class PdfProcessor extends FileProcessor {
       throw error;
     }
   }
+
   /**
    * Retrieve the status and results of a batch job
    * @param {string} batchId - The batch ID to check
@@ -377,11 +372,6 @@ class PdfProcessor extends FileProcessor {
   async retrieveBatchResults(batchId, outputFile = null) {
     try {
       console.log(`Checking batch status for ID: ${batchId}`);
-
-      // If no output file specified, create a temporary one
-      if (!outputFile) {
-        outputFile = path.join(os.tmpdir(), `batch_results_${Date.now()}.jsonl`);
-      }
   
       // Get batch status
       const batch = await openai.batches.retrieve(batchId);
@@ -403,8 +393,10 @@ class PdfProcessor extends FileProcessor {
           const fileResponse = await openai.files.content(batch.output_file_id);
           const results = await fileResponse.text();
   
-          await fs.writeFile(outputFile, results);
-          console.log(`Results saved to ${outputFile}`);
+          if (outputFile) {
+            await fs.writeFile(outputFile, results);
+            console.log(`Results saved to ${outputFile}`);
+          }
   
           // Parse and return results
           const parsedResults = results
@@ -416,7 +408,6 @@ class PdfProcessor extends FileProcessor {
             batch,
             results: parsedResults,
             rawResults: results,
-            outputFile, // Return the file path for cleanup
           };
         }
       } else if (batch.status === "failed") {
@@ -428,12 +419,13 @@ class PdfProcessor extends FileProcessor {
         console.log("Batch is still processing...");
       }
   
-      return { batch, results: null, outputFile };
+      return { batch, results: null };
     } catch (error) {
       console.error("Error retrieving batch results:", error);
       throw error;
     }
   }
+
   /**
    * Poll batch status until completion
    * @param {string} batchId - The batch ID to monitor
@@ -447,11 +439,6 @@ class PdfProcessor extends FileProcessor {
     outputFile = null
   ) {
     console.log(`Monitoring batch ${batchId} for completion...`);
-
-    // Create temporary file if none specified
-    if (!outputFile) {
-      outputFile = path.join(os.tmpdir(), `batch_results_${Date.now()}.jsonl`);
-    }
 
     while (true) {
       const result = await this.retrieveBatchResults(batchId, outputFile);
@@ -473,6 +460,7 @@ class PdfProcessor extends FileProcessor {
       await new Promise((resolve) => setTimeout(resolve, intervalMs));
     }
   }
+
   /**
    * Process PDF with OpenAI API to extract text and generate description in one call
    */
@@ -492,10 +480,6 @@ class PdfProcessor extends FileProcessor {
         additionalProperties: false,
       },
     };
-
-    let batchTasksFile = null;
-    let batchResultsFile = null;
-
     try {
       // Convert buffer to base64 for OpenAI API
       const base64Pdf = pdfBuffer.toString("base64");
@@ -512,16 +496,14 @@ class PdfProcessor extends FileProcessor {
       '\n  "topic": "The main topic or subject of the document, e.g.,"' +
       "\n}" +
       "\nDO NOT include any text, markdown formatting, or explanation outside the JSON structure. AND DO NOT SUMMARIZE ANYTHING";
-      
       // Split PDF into individual pages
       const pdfPages = await this.splitPdf(pdfBuffer);
+
       console.log(`${pdfPages.length} PDF pages created.`);
 
-      // Build batch tasks for each page - this now returns both tasks and file path
-      const { tasks, outputFile: tasksFile } = await this.buildBatchTasks(pdfPages, null, ANALYSIS_SCHEMA, PROMPT);
-      batchTasksFile = tasksFile;
+      // Build batch tasks for each page
+      const tasks = await this.buildBatchTasks(pdfPages, "batch_tasks.jsonl", ANALYSIS_SCHEMA, PROMPT);
       console.log(`Created ${tasks.length} batch tasks.`);
-      
       // Check if API key is set
       if (!OPENAI_API_KEY) {
         console.log("⚠️  OPENAI_API_KEY environment variable not set.");
@@ -537,21 +519,17 @@ class PdfProcessor extends FileProcessor {
       }
 
       // Upload batch tasks
-      const batchId = await this.uploadBatchTasks(batchTasksFile);
+      const batchId = await this.uploadBatchTasks("batch_tasks.jsonl");
       console.log(`Batch uploaded with ID: ${batchId}`);
-
-      // Create temporary file for results
-      batchResultsFile = path.join(os.tmpdir(), `batch_results_${Date.now()}.jsonl`);
 
       // Wait for completion
       const results = await this.waitForBatchCompletion(
         batchId,
         10 * 1000,
-        batchResultsFile
+        "batch_results.jsonl"
       );
-      console.log(`Processing completed! Results saved to ${batchResultsFile}`);
+      console.log(`Processing completed! Results saved to batch_results.jsonl`);
       console.log(`Total results: ${results.results?.length || 0}`);
-      
       // From inside results => rawResults => we have list of objects, we need extracted_text, short_description, topic
       const rawResults = results.rawResults;
       
@@ -568,25 +546,6 @@ class PdfProcessor extends FileProcessor {
       throw new Error(
         `Failed to process PDF using OpenAI API: ${error.message}`
       );
-    } finally {
-      // Clean up temporary files
-      try {
-        if (batchTasksFile) {
-          await fs.unlink(batchTasksFile);
-          console.log(`Cleaned up temporary file: ${batchTasksFile}`);
-        }
-      } catch (cleanupError) {
-        console.warn(`Failed to cleanup batch tasks file: ${cleanupError.message}`);
-      }
-
-      try {
-        if (batchResultsFile) {
-          await fs.unlink(batchResultsFile);
-          console.log(`Cleaned up temporary file: ${batchResultsFile}`);
-        }
-      } catch (cleanupError) {
-        console.warn(`Failed to cleanup batch results file: ${cleanupError.message}`);
-      }
     }
   }
 }

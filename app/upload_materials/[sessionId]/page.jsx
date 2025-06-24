@@ -160,7 +160,7 @@ async function uploadFile(file, setProcessingStatus, sessionId) {
 // Poll the material status every 3 seconds by calling /api/materials/[materialId]
 function pollMaterialStatus(materialId, setProcessingStatus) {
   let attempts = 0;
-  const maxAttempts = 30; // Maximum number of polling attempts (60 seconds total)
+  const maxAttempts = 120; // Maximum number of polling attempts (60 seconds total)
 
   console.log(`Starting polling for material ID: ${materialId}`);
 
