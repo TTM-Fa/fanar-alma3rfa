@@ -1011,7 +1011,6 @@ const UploadMaterialsPage = () => {
   // Move the useParams hook call to the component level
   const params = useParams();
   const sessionId = params.sessionId;
-
   // Fetch existing materials and session details when component mounts
   useEffect(() => {
     const fetchSessionData = async () => {
@@ -1036,16 +1035,17 @@ const UploadMaterialsPage = () => {
           setSessionDetails(data.session);
 
           if (data.session.materials) {
-            setExistingMaterials(data.session.materials);
-
-            // Update processing status for existing materials
+            setExistingMaterials(data.session.materials);            // Update processing status for existing materials
             const newProcessingStatus = { ...processingStatus };
+            const materialsToPoll = []; // Track materials that need polling
+            
             data.session.materials.forEach((material) => {
               if (material.status) {
                 // Map statuses to progress values
                 const statusMap = {
                   "Not Found": 50,
                   processing: 75,
+                  Processing: 75,
                   "Converting to text": 80,
                   "Skimming Through": 85,
                   Summarizing: 95,
@@ -1065,11 +1065,22 @@ const UploadMaterialsPage = () => {
                   error:
                     material.status === "error" ? "Processing failed" : null,
                   type: "file", // Default type
-                };
+                };                // Check if material is still processing and needs polling
+                const isProcessing = !["Ready", "ready", "error", "unsupported"].includes(material.status);
+                if (isProcessing) {
+                  materialsToPoll.push(material.id);
+                  console.log(`Material ${material.id} is still processing (${material.status}), will start polling`);
+                }
               }
             });
 
-            setProcessingStatus(newProcessingStatus);
+            setProcessingStatus(newProcessingStatus);            // Start polling for any materials that are still processing
+            if (materialsToPoll.length > 0) {
+              console.log(`Starting polling for ${materialsToPoll.length} processing materials`);
+              materialsToPoll.forEach((materialId) => {
+                pollMaterialStatus(materialId, setProcessingStatus);
+              });
+            }
           }
         }
       } catch (error) {

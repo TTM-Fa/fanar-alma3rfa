@@ -3,7 +3,6 @@ import fetch from "node-fetch";
 import { OpenAI } from "openai";
 import { PDFDocument } from "pdf-lib";
 import fs from "node:fs/promises";
-import fsSync from "node:fs";
 
 // Initialize OpenAI client
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY
@@ -81,7 +80,6 @@ class FileProcessor {
 }
 
 const buildClassificationPrompt = (pages) => `
-SYSTEM:
 You are a meticulous document-processing assistant.
 KEEP a page if it looks like substantive content.
 SKIP a page if it is a cover, table of contents, blank, index, ads, license, etc.
@@ -148,53 +146,21 @@ class PdfProcessor extends FileProcessor {
       
       const extractedText = rawResults.map((r) => r.extracted_text || "");
       const description = rawResults.map((r) => r.short_description || "");
-      // We will filter and merge the description of the pages
-      // to create a more concise and relevant description
-      // Log the extracted text and description for debugging
-      console.log("Extracted Text: \n", extractedText);
-      console.log("Description: \n", description);
-
-      const prompt = buildClassificationPrompt(rawResults);
-      console.log(`Prompt for classification: \n`, prompt);
-            
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0,
-        max_tokens: 4096,
-        response_format: { type: "json_object" },
-      });
+      const topic = rawResults.map((r) => r.topic || "");
       
-
-      let decisions;
-      try {
-        decisions = JSON.parse(completion.choices[0].message.content.trim());
-      } catch (err) {
-        console.error("⚠️  LLM returned invalid JSON:");
-        console.error(completion.choices[0].message.content);
-        throw err;
-      }
-      console.log("Decisions:", decisions);
-      // Filter pages to keep based on LLM decisions
-      const keptIndexes = decisions.result
-        .filter((d) => d.keep)
-        .map((d) => d.index)
-        .sort((a, b) => a - b);
-      console.log("Kept page indexes:", keptIndexes);
-      
-      const mergedText = keptIndexes
-        .map((i) => `<page-${i + 1}>${extractedText[i]}</page-${i + 1}>`)
+      const mergedText = extractedText
         .filter(text => text && text.trim()) // Remove empty/null text
+        .map((text, i) => `<page-${i + 1}>${text}</page-${i + 1}>`)
         .join("\n");
-      
-      const mergedDescription = keptIndexes
-        .map((i) => `<page-${i + 1}>${description[i]}</page-${i + 1}>`)
+
+      const mergedDescription = description
         .filter(desc => desc && desc.trim()) // Remove empty/null descriptions
+        .map((desc, i) => `<page-${i + 1}>${desc}</page-${i + 1}>`)
         .join("\n");
-      
-      const mergedTopic = keptIndexes
-        .map((i) => `<page-${i + 1}>${rawResults[i].topic}</page-${i + 1}>`)
-        .filter(topic => topic && topic.trim()) // Remove empty/null topics
+
+      const mergedTopic = topic
+        .filter(topicItem => topicItem && topicItem.trim()) // Remove empty/null topics
+        .map((topicItem, i) => `<page-${i + 1}>${topicItem}</page-${i + 1}>`)
         .join("\n");
 
       console.log("Merged Text:\n", mergedText); 
@@ -223,6 +189,7 @@ class PdfProcessor extends FileProcessor {
         success: true,
         text: mergedText,
         description: mergedDescription,
+        mergedTopic: mergedTopic,
       };
     } catch (error) {
       console.error(`PDF processing error for ${materialId}:`, error);
@@ -274,14 +241,12 @@ class PdfProcessor extends FileProcessor {
   
     return pdfPages;
   }
-
   /**
    * Build batch tasks for OpenAI API
    * @param {Array} pdfPages - Array of objects with page number and base64 content
-   * @param {string} outputFile - Path to save the batch tasks as JSONL
-   * @return {Promise<Array>} - Array of task objects
+   * @return {Promise<Object>} - Object containing tasks array and JSONL buffer
    * */
-  async buildBatchTasks(pdfPages, outputFile = "batch_tasks.jsonl", ANALYSIS_SCHEMA, PROMPT) {
+  async buildBatchTasks(pdfPages, ANALYSIS_SCHEMA, PROMPT) {
     console.log(`Building batch tasks for ${pdfPages.length} pages`);
   
     const tasks = [];
@@ -320,27 +285,34 @@ class PdfProcessor extends FileProcessor {
       tasks.push(task);
     }
   
-    // Write tasks to JSONL file
+    // Create JSONL buffer instead of writing to file
     const jsonlContent = tasks.map((task) => JSON.stringify(task)).join("\n");
-    await fs.writeFile(outputFile, jsonlContent);
-    console.log(`Saved ${tasks.length} tasks to ${outputFile}`);
+    const jsonlBuffer = Buffer.from(jsonlContent, 'utf8');
+    console.log(`Created ${tasks.length} tasks in buffer`);
   
-    return tasks;
+    return { tasks, jsonlBuffer };
   }
   
-
   /**
    * Upload batch tasks to OpenAI for processing
-   * @param {string} inputFile - Path to the JSONL file containing batch tasks
-    * @return {Promise<string>} - Batch ID from OpenAI
-    */
-  async uploadBatchTasks(inputFile = "batch_tasks.jsonl") {
+   * @param {Buffer} jsonlBuffer - Buffer containing the JSONL batch tasks
+   * @return {Promise<string>} - Batch ID from OpenAI
+   */
+  async uploadBatchTasks(jsonlBuffer) {
     try {
-      console.log(`Uploading batch tasks from ${inputFile}...`);
+      console.log(`Uploading batch tasks from buffer...`);
   
-      // First, upload the file
+      // Create a readable stream from the buffer
+      const { Readable } = await import('stream');
+      const stream = new Readable({
+        read() {}
+      });
+      stream.push(jsonlBuffer);
+      stream.push(null); // End the stream
+  
+      // Upload the buffer as a stream
       const file = await openai.files.create({
-        file: fsSync.createReadStream(inputFile),
+        file: stream,
         purpose: "batch",
       });
   
@@ -362,14 +334,12 @@ class PdfProcessor extends FileProcessor {
       throw error;
     }
   }
-
   /**
    * Retrieve the status and results of a batch job
    * @param {string} batchId - The batch ID to check
-   * @param {string} outputFile - Optional file to save results to
-   * @returns {Promise<Object>} - Batch status and results
+   * @returns {Promise<Object>} - Batch status and results with buffer
    */
-  async retrieveBatchResults(batchId, outputFile = null) {
+  async retrieveBatchResults(batchId) {
     try {
       console.log(`Checking batch status for ID: ${batchId}`);
   
@@ -393,10 +363,9 @@ class PdfProcessor extends FileProcessor {
           const fileResponse = await openai.files.content(batch.output_file_id);
           const results = await fileResponse.text();
   
-          if (outputFile) {
-            await fs.writeFile(outputFile, results);
-            console.log(`Results saved to ${outputFile}`);
-          }
+          // Create buffer from results instead of writing to file
+          const resultsBuffer = Buffer.from(results, 'utf8');
+          console.log(`Results stored in buffer`);
   
           // Parse and return results
           const parsedResults = results
@@ -408,6 +377,7 @@ class PdfProcessor extends FileProcessor {
             batch,
             results: parsedResults,
             rawResults: results,
+            resultsBuffer,
           };
         }
       } else if (batch.status === "failed") {
@@ -425,23 +395,20 @@ class PdfProcessor extends FileProcessor {
       throw error;
     }
   }
-
   /**
    * Poll batch status until completion
    * @param {string} batchId - The batch ID to monitor
    * @param {number} intervalMs - Polling interval in milliseconds (default: 30 seconds)
-   * @param {string} outputFile - Optional file to save results to
-   * @returns {Promise<Object>} - Final batch results
+   * @returns {Promise<Object>} - Final batch results with buffer
    */
   async waitForBatchCompletion(
     batchId,
-    intervalMs = 30000,
-    outputFile = null
+    intervalMs = 30000
   ) {
     console.log(`Monitoring batch ${batchId} for completion...`);
 
     while (true) {
-      const result = await this.retrieveBatchResults(batchId, outputFile);
+      const result = await this.retrieveBatchResults(batchId);
 
       if (result.batch.status === "completed") {
         console.log("Batch processing completed successfully!");
@@ -495,40 +462,25 @@ class PdfProcessor extends FileProcessor {
       '\n  "short_description": "A concise 1-2 sentence description of the document"' +
       '\n  "topic": "The main topic or subject of the document, e.g.,"' +
       "\n}" +
-      "\nDO NOT include any text, markdown formatting, or explanation outside the JSON structure. AND DO NOT SUMMARIZE ANYTHING";
-      // Split PDF into individual pages
+      "\nDO NOT include any text, markdown formatting, or explanation outside the JSON structure. AND DO NOT SUMMARIZE ANYTHING";      // Split PDF into individual pages
       const pdfPages = await this.splitPdf(pdfBuffer);
 
       console.log(`${pdfPages.length} PDF pages created.`);
 
       // Build batch tasks for each page
-      const tasks = await this.buildBatchTasks(pdfPages, "batch_tasks.jsonl", ANALYSIS_SCHEMA, PROMPT);
+      const { tasks, jsonlBuffer } = await this.buildBatchTasks(pdfPages, ANALYSIS_SCHEMA, PROMPT);
       console.log(`Created ${tasks.length} batch tasks.`);
-      // Check if API key is set
-      if (!OPENAI_API_KEY) {
-        console.log("⚠️  OPENAI_API_KEY environment variable not set.");
-        console.log("Set it with: export OPENAI_API_KEY='your-api-key-here'");
-        console.log("\nWhen ready, uncomment the batch processing code below:");
-        console.log(
-          "// const batchId = await uploadBatchTasks('batch_tasks.jsonl');"
-        );
-        console.log(
-          "// const results = await waitForBatchCompletion(batchId, 30000, 'batch_results.jsonl');"
-        );
-        return;
-      }
-
-      // Upload batch tasks
-      const batchId = await this.uploadBatchTasks("batch_tasks.jsonl");
+      
+      // Upload batch tasks using buffer
+      const batchId = await this.uploadBatchTasks(jsonlBuffer);
       console.log(`Batch uploaded with ID: ${batchId}`);
 
       // Wait for completion
       const results = await this.waitForBatchCompletion(
         batchId,
-        10 * 1000,
-        "batch_results.jsonl"
+        10 * 1000
       );
-      console.log(`Processing completed! Results saved to batch_results.jsonl`);
+      console.log(`Processing completed! Results stored in buffer`);
       console.log(`Total results: ${results.results?.length || 0}`);
       // From inside results => rawResults => we have list of objects, we need extracted_text, short_description, topic
       const rawResults = results.rawResults;
