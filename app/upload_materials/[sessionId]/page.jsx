@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Label } from "@/components/ui/label";
+import { NotificationPopup } from "@/components/ui/notification-popup";
 import { useParams, useRouter } from "next/navigation";
 import {
   File,
@@ -29,12 +30,12 @@ import {
   Download,
   MoreHorizontal,
   ExternalLink,
+  AlertTriangle,
 } from "lucide-react";
 import { upload } from "@vercel/blob/client";
 
-// Upload file (PDF or audio) using Vercel Blob - this returns a blob object containing an "id" for polling
+// Upload file (PDF or audio) using Vercel Blob - simplified for new unified polling
 async function uploadFile(file, setProcessingStatus, sessionId) {
-  // Here we set an initial temporary status
   const tempMaterialId = Math.random().toString(36).substring(7);
   const isAudio = file.type.startsWith("audio/");
 
@@ -55,12 +56,11 @@ async function uploadFile(file, setProcessingStatus, sessionId) {
       access: "public",
       handleUploadUrl: `/api/materials/upload?sessionId=${sessionId}`,
       onUploadProgress: (progress) => {
-        // Update progress during upload
         setProcessingStatus((prev) => ({
           ...prev,
           [tempMaterialId]: {
             ...prev[tempMaterialId],
-            progress: Math.round(progress * 50), // Scale to 0-50% for upload phase
+            progress: Math.round(progress * 50),
             statusText: "Uploading",
             phase: 0,
           },
@@ -68,30 +68,16 @@ async function uploadFile(file, setProcessingStatus, sessionId) {
       },
     });
 
-    // Update status after successful upload
-    setProcessingStatus((prev) => ({
-      ...prev,
-      [tempMaterialId]: {
-        ...prev[tempMaterialId],
-        progress: 50,
-        statusText: isAudio ? "Transcribing audio" : "Processing",
-        phase: 1,
-      },
-    }));
-
     console.log("Upload complete, blob response:", blob);
 
-    // The materialId might not be immediately available in the blob response
-    // We need to make a separate request to get the material ID from the server
-    if (!blob.materialId) {
-      // We'll use the URL to identify the material later
+    // Handle materialId extraction (same logic as before)
+    let materialId = blob.materialId;
+
+    if (!materialId) {
       const blobUrl = blob.url;
       const fileName = blob.pathname || blobUrl.split("/").pop();
-
-      // Wait briefly to allow the server to finish processing and creating the DB record
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      // Make a request to get the material ID for this file
       try {
         const getMaterialRes = await fetch(
           `/api/materials/create?fileName=${encodeURIComponent(
@@ -106,7 +92,7 @@ async function uploadFile(file, setProcessingStatus, sessionId) {
 
         const materialData = await getMaterialRes.json();
         if (materialData.success && materialData.materialId) {
-          blob.materialId = materialData.materialId;
+          materialId = materialData.materialId;
           console.log("Retrieved material ID:", materialData.materialId);
         } else {
           throw new Error("Material ID not returned from server");
@@ -117,33 +103,28 @@ async function uploadFile(file, setProcessingStatus, sessionId) {
       }
     }
 
-    const materialId = blob.materialId;
-    console.log("Final material ID for polling:", materialId);
-
     if (!materialId) {
-      throw new Error(
-        "Failed to get material ID from server response. Make sure the server is returning a materialId property in the response."
-      );
+      throw new Error("Failed to get material ID from server response.");
     }
 
     // Update the processing status with the new permanent ID
     if (materialId !== tempMaterialId) {
       setProcessingStatus((prev) => {
         const newStatus = { ...prev };
-        // Copy the status from the temp ID to the permanent ID
-        newStatus[materialId] = { ...newStatus[tempMaterialId] };
-        // Remove the temporary ID entry
+        newStatus[materialId] = {
+          ...newStatus[tempMaterialId],
+          progress: 50,
+          statusText: isAudio ? "Transcribing audio" : "Processing",
+          phase: 1,
+        };
         delete newStatus[tempMaterialId];
         return newStatus;
       });
     }
 
-    // Start polling the material status after upload is complete
-    pollMaterialStatus(materialId, setProcessingStatus);
     return materialId;
   } catch (error) {
     console.error("Error uploading file:", error);
-    // Update status on error
     setProcessingStatus((prev) => ({
       ...prev,
       [tempMaterialId]: {
@@ -155,118 +136,6 @@ async function uploadFile(file, setProcessingStatus, sessionId) {
     }));
     return null;
   }
-}
-
-// Poll the material status every 3 seconds by calling /api/materials/[materialId]
-function pollMaterialStatus(materialId, setProcessingStatus) {
-  let attempts = 0;
-  const maxAttempts = 120; // Maximum number of polling attempts (60 seconds total)
-
-  console.log(`Starting polling for material ID: ${materialId}`);
-
-  const interval = setInterval(async () => {
-    try {
-      attempts++;
-      if (attempts > maxAttempts) {
-        clearInterval(interval);
-        setProcessingStatus((prev) => ({
-          ...prev,
-          [materialId]: {
-            ...prev[materialId],
-            statusText: "Processing Timed Out",
-            error: "Processing took too long. Check your material later.",
-            phase: -1,
-          },
-        }));
-        return;
-      }
-
-      console.log(`Polling attempt ${attempts} for material ID: ${materialId}`);
-      const apiUrl = `/api/materials/${materialId}`;
-      console.log(`Calling API: ${apiUrl}`);
-
-      const res = await fetch(apiUrl);
-
-      if (!res.ok) {
-        const errorText = await res
-          .text()
-          .catch(() => "Failed to get error details");
-        console.error(`API Error (${res.status}): ${errorText}`);
-
-        // Handle 404 specifically - likely means the material wasn't created properly
-        if (res.status === 404) {
-          setProcessingStatus((prev) => ({
-            ...prev,
-            [materialId]: {
-              ...prev[materialId],
-              statusText: "Material Not Found",
-              error:
-                "The uploaded material could not be found. There may be an issue with the server configuration.",
-              phase: -1,
-            },
-          }));
-
-          // Stop polling if we get a 404 after a few attempts
-          if (attempts >= 3) {
-            console.error("Stopping polling due to repeated 404 errors");
-            clearInterval(interval);
-            return;
-          }
-        }
-
-        throw new Error(`API responded with status: ${res.status}`);
-      }
-
-      const data = await res.json();
-      console.log(`Poll response for ${materialId}:`, data);
-
-      if (!data.success) {
-        throw new Error(data.error || "Unknown error checking material status");
-      }
-
-      // Map returned statuses to a progress value
-      const statusMap = {
-        "Not Found": 50,
-        Processing: 75,
-        "Converting to text": 80,
-        "Skimming Through": 85,
-        Summarizing: 95,
-        Ready: 100,
-      };
-
-      const progress = statusMap[data.material_status] || 50;
-      const phase = progress === 100 ? 4 : Math.floor(progress / 25);
-
-      setProcessingStatus((prev) => ({
-        ...prev,
-        [materialId]: {
-          ...prev[materialId],
-          progress,
-          statusText: data.material_status,
-          phase,
-          error: null,
-        },
-      }));
-
-      if (data.material_status === "Ready") {
-        clearInterval(interval);
-      }
-    } catch (err) {
-      console.error(`Error polling material status for ${materialId}:`, err);
-      // Don't clear the interval on error, just log it and continue trying
-      setProcessingStatus((prev) => ({
-        ...prev,
-        [materialId]: {
-          ...prev[materialId],
-          statusText: "Checking Status...",
-          error: null, // Don't show errors to user during polling, just keep trying
-        },
-      }));
-    }
-  }, 3000);
-
-  // Return a cleanup function that clears the interval
-  return () => clearInterval(interval);
 }
 
 // ---------------------
@@ -675,112 +544,143 @@ const PreviewSection = ({
 // ---------------------
 // Material Actions Component
 // ---------------------
-const MaterialActions = ({ material, sessionId }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [showCreateQuizModal, setShowCreateQuizModal] = useState(false);
-  const [quizParams, setQuizParams] = useState({
-    numQuestions: 5,
-    difficulty: "medium",
-    questionType: "multiple-choice",
-  });
-  const [isCreatingQuiz, setIsCreatingQuiz] = useState(false);
+const MaterialActions = ({ material, sessionId, onDelete }) => {
+  const [isDeleting, setIsDeleting] = useState(false);
   const router = useRouter();
 
   // Function to handle downloading material content
   const handleDownload = () => {
-    // If material has a direct link (like a PDF URL), use that for download
     if (material.link) {
-      // Create a link element
       const a = document.createElement("a");
       a.href = material.link;
       a.download = material.fileName || material.title || "download";
       a.target = "_blank";
-
-      // Append to the document, click it, and remove it
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       return;
     }
 
-    // Fall back to raw content if there's no direct download link
     if (material.rawContent) {
-      // Create filename from material title
       const filename = `${material.title
         .replace(/[^a-z0-9]/gi, "_")
         .toLowerCase()}.txt`;
-
-      // Create a blob with the content
       const blob = new Blob([material.rawContent], { type: "text/plain" });
-
-      // Create a temporary URL for the blob
       const url = URL.createObjectURL(blob);
-
-      // Create a link element
       const a = document.createElement("a");
       a.href = url;
       a.download = filename;
-
-      // Append to the document, click it, and remove it
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-
-      // Revoke the URL to free up memory
       URL.revokeObjectURL(url);
     } else {
       alert("No downloadable content available for this material.");
     }
   };
 
-  // Array of possible actions for a material
-  const actions = [
-    {
-      icon: <Brain className="h-4 w-4" />,
-      color: "text-purple-600",
-      bgColor: "bg-purple-100",
-      label: "Start Studying",
-      onClick: () => router.push(`/materials/${material.id}`),
-      disabled: material.status !== "Ready" && material.status !== "ready",
-    },
+  // Function to handle material deletion
+  const handleDelete = async () => {
+    if (
+      !confirm(
+        "Are you sure you want to delete this material? This action cannot be undone."
+      )
+    ) {
+      return;
+    }
 
-    {
-      icon: <Download className="h-4 w-4" />,
-      color: "text-gray-600 no-loading",
-      bgColor: "bg-gray-100",
-      label: "Download",
-      onClick: handleDownload,
-      disabled: false,
-    },
-  ];
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/materials/${material.id}/delete`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete material: ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        onDelete(material.id);
+      } else {
+        throw new Error(data.error || "Failed to delete material");
+      }
+    } catch (error) {
+      console.error("Error deleting material:", error);
+      alert(`Error deleting material: ${error.message}`);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const isReady = material.status === "Ready" || material.status === "ready";
+  const hasError = ["Error", "error", "unsupported"].includes(material.status);
+
+  // Define actions based on material status
+  const actions = [];
+
+  // Only show study and download buttons for ready materials
+  if (isReady) {
+    actions.push(
+      {
+        icon: <Brain className="h-4 w-4" />,
+        color: "text-purple-600",
+        bgColor: "bg-purple-100",
+        label: "Start Studying",
+        onClick: () => router.push(`/materials/${material.id}`),
+        disabled: false,
+      },
+      {
+        icon: <Download className="h-4 w-4" />,
+        color: "text-gray-600 no-loading",
+        bgColor: "bg-gray-100",
+        label: "Download",
+        onClick: handleDownload,
+        disabled: false,
+      }
+    );
+  }
+
+  // Show delete button for errored materials
+  if (hasError) {
+    actions.push({
+      icon: <Trash2 className="h-4 w-4" />,
+      color: "text-red-600",
+      bgColor: "bg-red-100",
+      label: "Delete",
+      onClick: handleDelete,
+      disabled: isDeleting,
+    });
+  }
+
+  if (actions.length === 0) {
+    return null;
+  }
 
   return (
-    <>
-      <div className="mt-3 border-t pt-3">
-        <div className="flex flex-wrap gap-2">
-          {/* Display first 2 actions as buttons */}
-          {actions.slice(0, 2).map((action, index) => (
-            <Button
-              key={index}
-              size="sm"
-              variant="outline"
-              className={`transition-all px-2.5 py-1.5 h-auto flex items-center gap-1.5 text-xs ${
-                action.color
-              } border-gray-200 hover:bg-gray-50 ${
-                action.disabled ? "opacity-50 cursor-not-allowed" : ""
-              }`}
-              onClick={action.disabled ? undefined : action.onClick}
-              disabled={action.disabled}
-            >
-              <span className={`${action.bgColor} p-1 rounded-full`}>
-                {action.icon}
-              </span>
-              {action.label}
-            </Button>
-          ))}
-        </div>
+    <div className="mt-3 border-t pt-3">
+      <div className="flex flex-wrap gap-2">
+        {actions.map((action, index) => (
+          <Button
+            key={index}
+            size="sm"
+            variant="outline"
+            className={`transition-all px-2.5 py-1.5 h-auto flex items-center gap-1.5 text-xs ${
+              action.color
+            } border-gray-200 hover:bg-gray-50 ${
+              action.disabled ? "opacity-50 cursor-not-allowed" : ""
+            }`}
+            onClick={action.disabled ? undefined : action.onClick}
+            disabled={action.disabled}
+          >
+            <span className={`${action.bgColor} p-1 rounded-full`}>
+              {action.icon}
+            </span>
+            {action.label}
+          </Button>
+        ))}
       </div>
-    </>
+    </div>
   );
 };
 
@@ -794,6 +694,7 @@ const ExistingMaterialsSection = ({
   processingStatus,
   getFileIcon,
   formatFileSize,
+  onDeleteMaterial,
 }) => {
   const router = useRouter();
 
@@ -826,7 +727,6 @@ const ExistingMaterialsSection = ({
   // Function to determine icon based on material type or URL
   const getMaterialIcon = (material) => {
     if (!material.type || material.type === "unknown") {
-      // Determine type from filename or URL if available
       if (
         material.name?.toLowerCase().endsWith(".pdf") ||
         material.url?.toLowerCase().includes(".pdf")
@@ -848,14 +748,20 @@ const ExistingMaterialsSection = ({
   // Function to get status badge color based on material status
   const getStatusBadgeColor = (status) => {
     const statusColors = {
-      ready: "bg-green-100 text-green-800",
       Ready: "bg-green-100 text-green-800",
-      processing: "bg-blue-100 text-blue-800",
+      ready: "bg-green-100 text-green-800",
       Processing: "bg-blue-100 text-blue-800",
+      processing: "bg-blue-100 text-blue-800",
       "Converting to text": "bg-blue-100 text-blue-800",
+      "Batch Created": "bg-purple-100 text-purple-800",
+      "Skimming Through": "bg-blue-100 text-blue-800",
+      Summarizing: "bg-blue-100 text-blue-800",
+      Error: "bg-red-100 text-red-800",
       error: "bg-red-100 text-red-800",
       unsupported: "bg-orange-100 text-orange-800",
       uploading: "bg-gray-100 text-gray-800",
+      uploaded: "bg-yellow-100 text-yellow-800",
+      pending: "bg-yellow-100 text-yellow-800",
     };
 
     return statusColors[status] || "bg-gray-100 text-gray-800";
@@ -870,10 +776,7 @@ const ExistingMaterialsSection = ({
         <div className="space-y-4">
           {existingMaterials.map((material) => {
             const status = processingStatus[material.id] || {
-              progress:
-                material.status === "ready" || material.status === "Ready"
-                  ? 100
-                  : 50,
+              progress: material.progress || 50,
               statusText: material.status || "Unknown",
             };
 
@@ -883,15 +786,32 @@ const ExistingMaterialsSection = ({
                 ? new URL(material.url).pathname.split("/").pop()
                 : "Unknown Material");
 
+            const hasError = ["Error", "error", "unsupported"].includes(
+              material.status
+            );
+            const isReady = ["Ready", "ready"].includes(material.status);
+            const isProcessing =
+              material.isProcessing || (material.progress < 100 && !hasError);
+
             return (
               <div
                 key={material.id}
-                className="p-4 border rounded transition hover:shadow-md cursor-pointer"
+                className={`p-4 border rounded transition hover:shadow-md ${
+                  hasError ? "border-red-200 bg-red-50" : "border-gray-200"
+                }`}
               >
                 <div className="flex items-start">
                   <div className="mr-4">
-                    <div className="p-2 rounded-full bg-gray-100">
-                      {getMaterialIcon(material)}
+                    <div
+                      className={`p-2 rounded-full ${
+                        hasError ? "bg-red-100" : "bg-gray-100"
+                      }`}
+                    >
+                      {hasError ? (
+                        <AlertTriangle className="h-8 w-8 text-red-600" />
+                      ) : (
+                        getMaterialIcon(material)
+                      )}
                     </div>
                   </div>
                   <div className="flex-1">
@@ -926,17 +846,26 @@ const ExistingMaterialsSection = ({
                       </p>
                     )}
 
-                    {status.progress < 100 &&
-                      material.status !== "error" &&
-                      material.status !== "unsupported" && (
-                        <div className="mt-2">
-                          <div className="flex items-center justify-between text-sm text-gray-600 mb-1">
-                            <span>{status.statusText || material.status}</span>
-                            <span>{status.progress}%</span>
-                          </div>
-                          <Progress value={status.progress} className="h-2" />
+                    {hasError && (
+                      <div className="text-red-600 text-sm mb-2">
+                        <AlertTriangle className="h-4 w-4 inline mr-1" />
+                        Processing failed. This material cannot be used for
+                        studying.
+                      </div>
+                    )}
+
+                    {isProcessing && (
+                      <div className="mt-2">
+                        <div className="flex items-center justify-between text-sm text-gray-600 mb-1">
+                          <span>{status.statusText || material.status}</span>
+                          <span>{material.progress || status.progress}%</span>
                         </div>
-                      )}
+                        <Progress
+                          value={material.progress || status.progress}
+                          className="h-2"
+                        />
+                      </div>
+                    )}
 
                     <div className="mt-3 flex justify-between items-center">
                       <div>
@@ -953,6 +882,7 @@ const ExistingMaterialsSection = ({
                       <MaterialActions
                         material={material}
                         sessionId={material.sessionId}
+                        onDelete={onDeleteMaterial}
                       />
                     </div>
                   </div>
@@ -1005,138 +935,184 @@ const UploadMaterialsPage = () => {
   const [isLoadingMaterials, setIsLoadingMaterials] = useState(false);
   const [loadError, setLoadError] = useState(null);
 
-  // New state variable for session details
+  // Session details state
   const [sessionDetails, setSessionDetails] = useState(null);
 
-  // Move the useParams hook call to the component level
+  // Notification popup state
+  const [notification, setNotification] = useState({
+    isOpen: false,
+    type: "info",
+    title: "",
+    message: "",
+  });
+
+  // Processing timeout state
+  const [longRunningProcesses, setLongRunningProcesses] = useState(new Set());
+
   const params = useParams();
   const sessionId = params.sessionId;
-  // Fetch existing materials and session details when component mounts
-  useEffect(() => {
-    const fetchSessionData = async () => {
-      if (!sessionId) return;
 
+  // Unified function to fetch session status using the new API
+  const fetchSessionStatus = async () => {
+    if (!sessionId) return;
+
+    try {
+      const response = await fetch(
+        `/api/materials/session-status?sessionId=${sessionId}`
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch session status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success && data.materials) {
+        setExistingMaterials(data.materials);
+
+        // Update processing status for existing materials
+        const newProcessingStatus = { ...processingStatus };
+        data.materials.forEach((material) => {
+          if (material.status) {
+            newProcessingStatus[material.id] = {
+              progress: material.progress,
+              statusText: material.status,
+              phase: material.phase,
+              error: material.hasError ? "Processing failed" : null,
+              type: "file",
+            };
+          }
+        });
+
+        setProcessingStatus(newProcessingStatus);
+
+        // Show notification if materials are taking too long to process
+        const processingMaterials = data.materials.filter(
+          (m) => m.isProcessing
+        );
+
+        if (processingMaterials.length > 0) {
+          const longRunning = processingMaterials.filter((m) => {
+            const createdTime = new Date(m.createdAt).getTime();
+            const currentTime = new Date().getTime();
+            const minutesProcessing = (currentTime - createdTime) / (1000 * 60);
+            return minutesProcessing > 2; // Consider as long-running after 2 minutes
+          });
+
+          if (longRunning.length > 0 && !longRunningProcesses.has(sessionId)) {
+            setLongRunningProcesses((prev) => new Set([...prev, sessionId]));
+            setNotification({
+              isOpen: true,
+              type: "processing",
+              title: "Materials Still Processing",
+              message: (
+                <div>
+                  <p className="mb-2">
+                    Your materials are being processed in the background. This
+                    may take several minutes.
+                  </p>
+                  <p className="text-sm">
+                    <strong>Processing:</strong> {processingMaterials.length}{" "}
+                    material(s)
+                  </p>
+                  <p className="text-sm mt-2">
+                    You can safely close this page and return later. The
+                    materials will appear here once ready.
+                  </p>
+                </div>
+              ),
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching session status:", error);
+      setLoadError(error.message);
+    }
+  };
+
+  // Fetch session details (keeping existing session API for session info)
+  const fetchSessionDetails = async () => {
+    if (!sessionId) return;
+
+    try {
+      const response = await fetch(`/api/study_session?sessionId=${sessionId}`);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch session details: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success && data.session) {
+        setSessionDetails(data.session);
+      }
+    } catch (error) {
+      console.error("Error fetching session details:", error);
+    }
+  };
+
+  // Initial data fetch when component mounts
+  useEffect(() => {
+    const fetchInitialData = async () => {
       setIsLoadingMaterials(true);
       setLoadError(null);
 
       try {
-        // Fetch session details and materials associated with this session
-        const response = await fetch(
-          `/api/study_session?sessionId=${sessionId}`
-        );
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch session data: ${response.status}`);
-        }
-
-        const data = await response.json();
-
-        if (data.success && data.session) {
-          setSessionDetails(data.session);
-
-          if (data.session.materials) {
-            setExistingMaterials(data.session.materials);            // Update processing status for existing materials
-            const newProcessingStatus = { ...processingStatus };
-            const materialsToPoll = []; // Track materials that need polling
-            
-            data.session.materials.forEach((material) => {
-              if (material.status) {
-                // Map statuses to progress values
-                const statusMap = {
-                  "Not Found": 50,
-                  processing: 75,
-                  Processing: 75,
-                  "Converting to text": 80,
-                  "Skimming Through": 85,
-                  Summarizing: 95,
-                  Ready: 100,
-                  ready: 100,
-                  error: 0,
-                  unsupported: 0,
-                };
-
-                const progress = statusMap[material.status] || 50;
-                const phase = progress === 100 ? 4 : Math.floor(progress / 25);
-
-                newProcessingStatus[material.id] = {
-                  progress,
-                  statusText: material.status,
-                  phase,
-                  error:
-                    material.status === "error" ? "Processing failed" : null,
-                  type: "file", // Default type
-                };                // Check if material is still processing and needs polling
-                const isProcessing = !["Ready", "ready", "error", "unsupported"].includes(material.status);
-                if (isProcessing) {
-                  materialsToPoll.push(material.id);
-                  console.log(`Material ${material.id} is still processing (${material.status}), will start polling`);
-                }
-              }
-            });
-
-            setProcessingStatus(newProcessingStatus);            // Start polling for any materials that are still processing
-            if (materialsToPoll.length > 0) {
-              console.log(`Starting polling for ${materialsToPoll.length} processing materials`);
-              materialsToPoll.forEach((materialId) => {
-                pollMaterialStatus(materialId, setProcessingStatus);
-              });
-            }
-          }
-        }
+        await Promise.all([fetchSessionStatus(), fetchSessionDetails()]);
       } catch (error) {
-        console.error("Error fetching session data:", error);
+        console.error("Error fetching initial data:", error);
         setLoadError(error.message);
       } finally {
         setIsLoadingMaterials(false);
       }
     };
 
-    fetchSessionData();
+    fetchInitialData();
   }, [sessionId]);
 
-  // Effect to monitor processing status and refresh existing materials when items become ready
+  // Polling effect for status updates (reduced frequency since we have unified API)
   useEffect(() => {
-    const readyMaterials = Object.entries(processingStatus).filter(
-      ([id, status]) => status.statusText === "Ready" && status.progress === 100
+    if (!sessionId) return;
+
+    // Check if there are any materials currently being processed
+    const hasProcessingMaterials = existingMaterials.some(
+      (material) => material.isProcessing
     );
 
-    if (readyMaterials.length > 0 && isUploading) {
-      // Some materials have become ready, refresh the materials list
-      const fetchUpdatedMaterials = async () => {
-        try {
-          const response = await fetch(
-            `/api/study_session?sessionId=${sessionId}`
-          );
+    if (!hasProcessingMaterials) return;
 
-          if (!response.ok) {
-            throw new Error(
-              `Failed to fetch updated materials: ${response.status}`
-            );
-          }
+    console.log("Starting status polling for session:", sessionId);
 
-          const data = await response.json();
+    const pollInterval = setInterval(() => {
+      fetchSessionStatus();
+    }, 10000); // Poll every 10 seconds
 
-          if (data.success && data.session && data.session.materials) {
-            setExistingMaterials(data.session.materials);
+    return () => {
+      console.log("Stopping status polling");
+      clearInterval(pollInterval);
+    };
+  }, [sessionId, existingMaterials]);
 
-            // Remove processed files from the files state
-            const readyMaterialIds = readyMaterials.map(([id]) => id);
-            setFiles((prevFiles) =>
-              prevFiles.filter((file) => !readyMaterialIds.includes(file.id))
-            );
-          }
-        } catch (error) {
-          console.error("Error refreshing materials after processing:", error);
-        }
-      };
+  // Handle material deletion
+  const handleDeleteMaterial = (materialId) => {
+    setExistingMaterials((prev) =>
+      prev.filter((material) => material.id !== materialId)
+    );
+    setProcessingStatus((prev) => {
+      const newStatus = { ...prev };
+      delete newStatus[materialId];
+      return newStatus;
+    });
+  };
 
-      fetchUpdatedMaterials();
-    }
-  }, [processingStatus, isUploading, sessionId]);
+  // Close notification
+  const closeNotification = () => {
+    setNotification((prev) => ({ ...prev, isOpen: false }));
+  };
 
-  // Utility functions
+  // Utility functions (keeping existing ones)
   const getRandomBubbleColor = () => {
-    // For file borders and badges
     const colors = ["#4B5563", "#6B7280", "#9CA3AF"];
     return colors[Math.floor(Math.random() * colors.length)];
   };
@@ -1149,12 +1125,9 @@ const UploadMaterialsPage = () => {
 
   const getFileIcon = (type) => {
     const fileTypeIcons = {
-      // PDF file types
       "application/pdf": <FileText className="h-8 w-8 text-gray-600" />,
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
         <FileText className="h-8 w-8 text-gray-600" />,
-
-      // Audio file types
       "audio/mpeg": <FileAudio className="h-8 w-8 text-blue-600" />,
       "audio/mp3": <FileAudio className="h-8 w-8 text-blue-600" />,
       "audio/wav": <FileAudio className="h-8 w-8 text-blue-600" />,
@@ -1162,15 +1135,10 @@ const UploadMaterialsPage = () => {
       "audio/m4a": <FileAudio className="h-8 w-8 text-blue-600" />,
       "audio/mp4": <FileAudio className="h-8 w-8 text-blue-600" />,
       "audio/x-wav": <FileAudio className="h-8 w-8 text-blue-600" />,
-
-      // Video file types
       "video/mp4": <FileVideo className="h-8 w-8 text-gray-600" />,
-
-      // Default file icon
       default: <File className="h-8 w-8 text-gray-600" />,
     };
 
-    // Special handling for audio types that might not be explicitly listed
     if (type.startsWith("audio/")) {
       return <FileAudio className="h-8 w-8 text-blue-600" />;
     }
@@ -1179,7 +1147,6 @@ const UploadMaterialsPage = () => {
   };
 
   const getProgressGradient = (progress) => {
-    // Using a simple gradient for progress bars
     const colors = ["#3B82F6", "#2563EB"];
     return `linear-gradient(to right, ${colors[0]}, ${colors[1]})`;
   };
@@ -1208,12 +1175,11 @@ const UploadMaterialsPage = () => {
     ],
   };
 
-  // Handlers for file uploads
+  // File handling functions (keeping existing logic)
   const handleDrop = (e) => {
     e.preventDefault();
     const droppedFiles = Array.from(e.dataTransfer.files);
     const validFiles = droppedFiles.filter((file) => {
-      // Check if file is PDF or audio
       const isPdf = file.type === "application/pdf";
       const isAudio = file.type.startsWith("audio/");
 
@@ -1224,7 +1190,6 @@ const UploadMaterialsPage = () => {
         return false;
       }
 
-      // Check file size (30MB = 30 * 1024 * 1024 bytes)
       if (file.size > 30 * 1024 * 1024) {
         alert(`File ${file.name} exceeds the 30MB size limit.`);
         return false;
@@ -1247,9 +1212,7 @@ const UploadMaterialsPage = () => {
 
   const handleFileChange = (e) => {
     const selectedFiles = Array.from(e.target.files);
-    // Filter for PDF and audio files under 30MB
     const validFiles = selectedFiles.filter((file) => {
-      // Check if file is PDF or audio
       const isPdf = file.type === "application/pdf";
       const isAudio = file.type.startsWith("audio/");
 
@@ -1260,7 +1223,6 @@ const UploadMaterialsPage = () => {
         return false;
       }
 
-      // Check file size (30MB = 30 * 1024 * 1024 bytes)
       if (file.size > 30 * 1024 * 1024) {
         alert(`File ${file.name} exceeds the 30MB size limit.`);
         return false;
@@ -1269,7 +1231,6 @@ const UploadMaterialsPage = () => {
       return true;
     });
 
-    // For each file, simply store it in state along with an "uploaded" flag.
     const newFiles = validFiles.map((file) => ({
       id: Math.random().toString(36).substring(7),
       file,
@@ -1279,14 +1240,13 @@ const UploadMaterialsPage = () => {
       title: file.name,
       subject: "",
       color: getRandomBubbleColor(),
-      uploaded: false, // not uploaded yet
+      uploaded: false,
     }));
     setFiles((prev) => [...prev, ...newFiles]);
   };
 
   const handleAddLink = async () => {
-    // Disabled - do nothing
-    return;
+    return; // Disabled
   };
 
   const handleRemoveFile = (id) =>
@@ -1296,10 +1256,10 @@ const UploadMaterialsPage = () => {
 
   const handleIngest = async () => {
     setIsUploading(true);
-    // Initialize processingStatus for each file (and links if needed)
+
+    // Initialize processing status for each file
     const initialStatus = {};
     files.forEach((file) => {
-      // Check if this is an audio file and set the appropriate type
       const isAudio = file.type.startsWith("audio/");
       initialStatus[file.id] = {
         phase: 0,
@@ -1312,7 +1272,6 @@ const UploadMaterialsPage = () => {
 
     if (!sessionId) {
       console.error("No session ID found in URL");
-      // Show error in UI
       setProcessingStatus((prev) => {
         const newStatus = { ...prev };
         files.forEach((file) => {
@@ -1330,7 +1289,7 @@ const UploadMaterialsPage = () => {
 
     console.log("Starting upload with session ID:", sessionId);
 
-    // For each file that hasn't been uploaded, perform the Vercel Blob upload
+    // Upload files
     for (const fileObj of files) {
       if (!fileObj.uploaded) {
         try {
@@ -1341,7 +1300,6 @@ const UploadMaterialsPage = () => {
           );
 
           if (materialId) {
-            // Update the file object in state with the new materialId and mark it as uploaded
             setFiles((prev) =>
               prev.map((f) =>
                 f.id === fileObj.id
@@ -1364,38 +1322,11 @@ const UploadMaterialsPage = () => {
         }
       }
     }
-  };
 
-  const simulateProcessing = (id, isFile) => {
-    const itemType = isFile ? "file" : "link";
-    const phases = processingPhases[itemType];
-    let currentPhase = 0;
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += Math.random() * 10;
-      if (progress >= 100) {
-        progress = 100;
-        currentPhase++;
-        progress = 0;
-        if (currentPhase >= phases.length - 1) {
-          clearInterval(interval);
-          setProcessingStatus((prev) => ({
-            ...prev,
-            [id]: { phase: phases.length - 1, progress: 100, type: itemType },
-          }));
-        } else {
-          setProcessingStatus((prev) => ({
-            ...prev,
-            [id]: { phase: currentPhase, progress, type: itemType },
-          }));
-        }
-      } else {
-        setProcessingStatus((prev) => ({
-          ...prev,
-          [id]: { phase: currentPhase, progress, type: itemType },
-        }));
-      }
-    }, 500);
+    // Refresh session status after uploading
+    setTimeout(() => {
+      fetchSessionStatus();
+    }, 2000);
   };
 
   return (
@@ -1447,7 +1378,6 @@ const UploadMaterialsPage = () => {
           />
         )}
 
-        {/* Moved Ingest button above Existing Materials section */}
         {(files.length > 0 || links.length > 0) && (
           <IngestButton
             files={files}
@@ -1464,6 +1394,7 @@ const UploadMaterialsPage = () => {
           processingStatus={processingStatus}
           getFileIcon={getFileIcon}
           formatFileSize={formatFileSize}
+          onDeleteMaterial={handleDeleteMaterial}
         />
 
         {isUploading &&
@@ -1483,6 +1414,26 @@ const UploadMaterialsPage = () => {
             </div>
           )}
       </div>
+
+      {/* Notification Popup */}
+      <NotificationPopup
+        isOpen={notification.isOpen}
+        onClose={closeNotification}
+        type={notification.type}
+        title={notification.title}
+        message={notification.message}
+        action={
+          notification.type === "processing" ? (
+            <Button
+              onClick={closeNotification}
+              className="bg-blue-600 text-white hover:bg-blue-700"
+            >
+              Got it
+            </Button>
+          ) : null
+        }
+      />
+     
     </div>
   );
 };

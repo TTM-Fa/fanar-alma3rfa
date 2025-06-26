@@ -73,7 +73,7 @@ const FlashcardListPage = () => {
       if (!materialId) return;
 
       try {
-        const response = await fetch(`/api/material/${materialId}/flashcards`);
+        const response = await fetch(`/api/materials/${materialId}/flashcards`);
 
         if (!response.ok) {
           throw new Error(

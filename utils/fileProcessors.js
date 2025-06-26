@@ -3,9 +3,10 @@ import fetch from "node-fetch";
 import { OpenAI } from "openai";
 import { PDFDocument } from "pdf-lib";
 import fs from "node:fs/promises";
+import fsSync from "node:fs";
 
 // Initialize OpenAI client
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const openai = new OpenAI({
   apiKey: OPENAI_API_KEY, // Make sure to set this environment variable
 });
@@ -32,6 +33,46 @@ export function getFileProcessor(fileType) {
 }
 
 /**
+ * Process a file using the appropriate processor
+ * @param {string} fileUrl - URL of the file to process
+ * @param {string} fileType - MIME type of the file
+ * @param {Object} options - Processing options including materialId, prisma, updateProgress
+ * @returns {Promise<Object>} - Processing result
+ */
+export async function processFile(fileUrl, fileType, options = {}) {
+  try {
+    console.log(`Processing file: ${fileUrl}, type: ${fileType}`);
+
+    // Get the appropriate processor for this file type
+    const processor = getFileProcessor(fileType);
+
+    // Process the file with the selected processor
+    const result = await processor.process(fileUrl, options);
+
+    console.log(
+      `File processing completed for ${options.materialId || "unknown"}`
+    );
+    return result;
+  } catch (error) {
+    console.error(`Error processing file ${fileUrl}:`, error);
+
+    // Update status to error if materialId and prisma are provided
+    if (options.materialId && options.prisma) {
+      try {
+        await options.prisma.material.update({
+          where: { id: options.materialId },
+          data: { status: "Error" },
+        });
+      } catch (statusError) {
+        console.error(`Failed to update error status:`, statusError);
+      }
+    }
+
+    throw error;
+  }
+}
+
+/**
  * Base processor class with common methods
  */
 class FileProcessor {
@@ -44,7 +85,6 @@ class FileProcessor {
    */
   async downloadFile(url) {
     // url = "https://uwgm32kt40oar3yw.public.blob.vercel-storage.com/lec-g3kRtkekLpk2dpYN3gWxOHvIm3DX0m.pdf"
-    
 
     const response = await fetch(url);
     if (!response.ok) {
@@ -79,47 +119,19 @@ class FileProcessor {
   }
 }
 
-const buildClassificationPrompt = (pages) => `
-You are a meticulous document-processing assistant.
-KEEP a page if it looks like substantive content.
-SKIP a page if it is a cover, table of contents, blank, index, ads, license, etc.
-
-Return your response as valid JSON array with the following format:
-[
-  {
-    "index": <number of the page>,
-    "keep": true|false
-  }
-]
-
-USER:
-Here are the page candidates:
-
-${pages
-  .map(
-    (p, index) =>
-      `Page ${index}:\n"""${p.short_description
-        .replace(/\n+/g, " ")
-        .slice(0, 500)} topic of the page: ${p.topic}"""`
-  )
-  .join("\n\n")}
-`;
-
 /**
  * PDF Processor using OpenAI API
  */
 class PdfProcessor extends FileProcessor {
   async process(fileUrl, { materialId, prisma, updateProgress }) {
     try {
-
-      // REACHED PROCESS IN FILE PROCESSOR
       // Log processing start for tracking
       console.log(
         `Starting processing for material ID: ${materialId}, URL: ${fileUrl}`
       );
 
       // Update status to processing
-      await this.updateStatus(materialId, "processing", prisma);
+      await this.updateStatus(materialId, "Processing", prisma);
 
       if (updateProgress) updateProgress(20, "Downloading PDF file...");
 
@@ -134,69 +146,40 @@ class PdfProcessor extends FileProcessor {
 
       // Update status to reflect the current step
       await this.updateStatus(materialId, "Converting to text", prisma);
-      
-      // Extract text and generate description in a single API call
-      const rawResults = await this.processWithOpenAI(
-        pdfBuffer
+
+      // Create a batch request instead of synchronous processing
+      const batchId = await this.createBatchRequest(pdfBuffer, materialId);
+      console.log(
+        `Created batch request with ID: ${batchId} for material ${materialId}`
       );
-      console.log(rawResults);
-      
-      // console.log(`Processing completed for ${materialId}, extracted text length: ${results.results?.length} chars`);
 
-      
-      const extractedText = rawResults.map((r) => r.extracted_text || "");
-      const description = rawResults.map((r) => r.short_description || "");
-      const topic = rawResults.map((r) => r.topic || "");
-      
-      const mergedText = extractedText
-        .filter(text => text && text.trim()) // Remove empty/null text
-        .map((text, i) => `<page-${i + 1}>${text}</page-${i + 1}>`)
-        .join("\n");
-
-      const mergedDescription = description
-        .filter(desc => desc && desc.trim()) // Remove empty/null descriptions
-        .map((desc, i) => `<page-${i + 1}>${desc}</page-${i + 1}>`)
-        .join("\n");
-
-      const mergedTopic = topic
-        .filter(topicItem => topicItem && topicItem.trim()) // Remove empty/null topics
-        .map((topicItem, i) => `<page-${i + 1}>${topicItem}</page-${i + 1}>`)
-        .join("\n");
-
-      console.log("Merged Text:\n", mergedText); 
-      console.log("Merged Description:\n", mergedDescription);
-      console.log("Merged Topic:\n", mergedTopic);
-      
-      if (updateProgress) updateProgress(80, "Storing processed content...");
-
-
-      // Save the extracted text and description to the database
+      // Update the material with the batch ID and set status to batch created
       await prisma.material.update({
         where: { id: materialId },
         data: {
-          rawContent: mergedText,
-          description: mergedDescription,
-          topic: mergedTopic, // add topic attribute
-          status: "Ready", // Use consistent status naming
-        }
+          batchId: batchId,
+          status: "Batch Created",
+        },
       });
-      console.log(`Processing completed for ${materialId}`);
 
+      if (updateProgress) updateProgress(60, "Batch created successfully");
 
-      if (updateProgress) updateProgress(100, "Processing complete");
+      console.log(
+        `Batch processing initiated for material ${materialId}. Batch ID: ${batchId}`
+      );
 
+      // Return early - the batch will be processed asynchronously
       return {
         success: true,
-        text: mergedText,
-        description: mergedDescription,
-        mergedTopic: mergedTopic,
+        batchId: batchId,
+        message: "Batch processing initiated",
       };
     } catch (error) {
       console.error(`PDF processing error for ${materialId}:`, error);
 
       // Update status to error
       try {
-        await this.updateStatus(materialId, "error", prisma);
+        await this.updateStatus(materialId, "Error", prisma);
       } catch (statusError) {
         console.error(
           `Failed to update error status for ${materialId}:`,
@@ -214,142 +197,22 @@ class PdfProcessor extends FileProcessor {
   }
 
   /**
-   * Split PDF into individual pages and return as base64 strings
-   * @param {string} inputPath - Path to the PDF file
-   * @return {Promise<Array>} - Array of objects with page number and base64 content
-   * */
-  async splitPdf(pdfBuffer) {
-    const pdfDoc = await PDFDocument.load(pdfBuffer);
-    const pageCount = pdfDoc.getPageCount();
-  
-    let pdfPages = [];
-  
-    for (let i = 0; i < pageCount; i++) {
-      // Create a new PDF with just this page
-      const newPdf = await PDFDocument.create();
-      const [copiedPage] = await newPdf.copyPages(pdfDoc, [i]);
-      newPdf.addPage(copiedPage);
-  
-      const pdfBytes = await newPdf.save();
-      const base64String = Buffer.from(pdfBytes).toString("base64");
-  
-      pdfPages.push({
-        page: i + 1,
-        base64: base64String,
-      });
-    }
-  
-    return pdfPages;
-  }
-  /**
-   * Build batch tasks for OpenAI API
-   * @param {Array} pdfPages - Array of objects with page number and base64 content
-   * @return {Promise<Object>} - Object containing tasks array and JSONL buffer
-   * */
-  async buildBatchTasks(pdfPages, ANALYSIS_SCHEMA, PROMPT) {
-    console.log(`Building batch tasks for ${pdfPages.length} pages`);
-  
-    const tasks = [];
-  
-    for (const { page, base64 } of pdfPages) {
-      const task = {
-        custom_id: page.toString(),
-        method: "POST",
-        url: "/v1/chat/completions",
-        body: {
-          model: "gpt-4o",
-          response_format: {
-            type: "json_schema",
-            json_schema: ANALYSIS_SCHEMA,
-          },
-          messages: [
-            {
-              role: "system",
-              content: PROMPT,
-            },
-            {
-              role: "user",
-              content: [
-                {
-                  type: "file",
-                  file: {
-                    file_data: `data:application/pdf;base64,${base64}`,
-                    filename: "document.pdf",
-                  },
-                },
-              ],
-            },
-          ],
-        },
-      };
-      tasks.push(task);
-    }
-  
-    // Create JSONL buffer instead of writing to file
-    const jsonlContent = tasks.map((task) => JSON.stringify(task)).join("\n");
-    const jsonlBuffer = Buffer.from(jsonlContent, 'utf8');
-    console.log(`Created ${tasks.length} tasks in buffer`);
-  
-    return { tasks, jsonlBuffer };
-  }
-  
-  /**
-   * Upload batch tasks to OpenAI for processing
-   * @param {Buffer} jsonlBuffer - Buffer containing the JSONL batch tasks
-   * @return {Promise<string>} - Batch ID from OpenAI
-   */
-  async uploadBatchTasks(jsonlBuffer) {
-    try {
-      console.log(`Uploading batch tasks from buffer...`);
-  
-      // Create a readable stream from the buffer
-      const { Readable } = await import('stream');
-      const stream = new Readable({
-        read() {}
-      });
-      stream.push(jsonlBuffer);
-      stream.push(null); // End the stream
-  
-      // Upload the buffer as a stream
-      const file = await openai.files.create({
-        file: stream,
-        purpose: "batch",
-      });
-  
-      console.log(`File uploaded with ID: ${file.id}`);
-  
-      // Create the batch job
-      const batch = await openai.batches.create({
-        input_file_id: file.id,
-        endpoint: "/v1/chat/completions",
-        completion_window: "24h",
-      });
-  
-      console.log(`Batch created with ID: ${batch.id}`);
-      console.log(`Status: ${batch.status}`);
-  
-      return batch.id;
-    } catch (error) {
-      console.error("Error uploading batch tasks:", error);
-      throw error;
-    }
-  }
-  /**
    * Retrieve the status and results of a batch job
    * @param {string} batchId - The batch ID to check
-   * @returns {Promise<Object>} - Batch status and results with buffer
+   * @param {string} outputFile - Optional file to save results to
+   * @returns {Promise<Object>} - Batch status and results
    */
-  async retrieveBatchResults(batchId) {
+  async retrieveBatchResults(batchId, outputFile = null) {
     try {
       console.log(`Checking batch status for ID: ${batchId}`);
-  
+
       // Get batch status
       const batch = await openai.batches.retrieve(batchId);
       console.log(`Batch Status: ${batch.status}`);
       console.log(
         `Created at: ${new Date(batch.created_at * 1000).toISOString()}`
       );
-  
+
       if (batch.status === "completed") {
         console.log(
           `Completed at: ${new Date(batch.completed_at * 1000).toISOString()}`
@@ -357,27 +220,27 @@ class PdfProcessor extends FileProcessor {
         console.log(
           `Request counts - Total: ${batch.request_counts.total}, Completed: ${batch.request_counts.completed}, Failed: ${batch.request_counts.failed}`
         );
-  
+
         if (batch.output_file_id) {
           // Download the results
           const fileResponse = await openai.files.content(batch.output_file_id);
           const results = await fileResponse.text();
-  
-          // Create buffer from results instead of writing to file
-          const resultsBuffer = Buffer.from(results, 'utf8');
-          console.log(`Results stored in buffer`);
-  
+
+          if (outputFile) {
+            await fs.writeFile(outputFile, results);
+            console.log(`Results saved to ${outputFile}`);
+          }
+
           // Parse and return results
           const parsedResults = results
             .trim()
             .split("\n")
             .map((line) => JSON.parse(line));
-  
+
           return {
             batch,
             results: parsedResults,
             rawResults: results,
-            resultsBuffer,
           };
         }
       } else if (batch.status === "failed") {
@@ -388,27 +251,26 @@ class PdfProcessor extends FileProcessor {
       } else {
         console.log("Batch is still processing...");
       }
-  
+
       return { batch, results: null };
     } catch (error) {
       console.error("Error retrieving batch results:", error);
       throw error;
     }
   }
+
   /**
    * Poll batch status until completion
    * @param {string} batchId - The batch ID to monitor
    * @param {number} intervalMs - Polling interval in milliseconds (default: 30 seconds)
-   * @returns {Promise<Object>} - Final batch results with buffer
+   * @param {string} outputFile - Optional file to save results to
+   * @returns {Promise<Object>} - Final batch results
    */
-  async waitForBatchCompletion(
-    batchId,
-    intervalMs = 30000
-  ) {
+  async waitForBatchCompletion(batchId, intervalMs = 30000, outputFile = null) {
     console.log(`Monitoring batch ${batchId} for completion...`);
 
     while (true) {
-      const result = await this.retrieveBatchResults(batchId);
+      const result = await this.retrieveBatchResults(batchId, outputFile);
 
       if (result.batch.status === "completed") {
         console.log("Batch processing completed successfully!");
@@ -429,9 +291,9 @@ class PdfProcessor extends FileProcessor {
   }
 
   /**
-   * Process PDF with OpenAI API to extract text and generate description in one call
+   * Create a batch request for PDF processing
    */
-  async processWithOpenAI(pdfBuffer) {
+  async createBatchRequest(pdfBuffer, materialId) {
     // Define the JSON schema for structured output
     const ANALYSIS_SCHEMA = {
       name: "pdf_analysis_schema",
@@ -447,10 +309,7 @@ class PdfProcessor extends FileProcessor {
         additionalProperties: false,
       },
     };
-    try {
-      // Convert buffer to base64 for OpenAI API
-      const base64Pdf = pdfBuffer.toString("base64");
-      const PROMPT =
+    const PROMPT =
       "You are a PDF content extractor that provides responses in JSON format only. When processing a PDF document:" +
       "\n1. Extract ALL text content including headers, paragraphs, bullets, footnotes, and captions." +
       "\n2. Pay special attention to images, graphs, tables, charts, and diagrams - describe their content in detail within the text. Include numerical data from tables, axis labels from charts, and key information from diagrams." +
@@ -462,42 +321,250 @@ class PdfProcessor extends FileProcessor {
       '\n  "short_description": "A concise 1-2 sentence description of the document"' +
       '\n  "topic": "The main topic or subject of the document, e.g.,"' +
       "\n}" +
-      "\nDO NOT include any text, markdown formatting, or explanation outside the JSON structure. AND DO NOT SUMMARIZE ANYTHING";      // Split PDF into individual pages
-      const pdfPages = await this.splitPdf(pdfBuffer);
+      "\nDO NOT include any text, markdown formatting, or explanation outside the JSON structure. AND DO NOT SUMMARIZE ANYTHING";
+    try {
+      // Split PDF into pages
+      const pages = await this.splitPdf(pdfBuffer);
+      console.log(
+        `Split PDF into ${pages.length} pages for material ${materialId}`
+      );
 
-      console.log(`${pdfPages.length} PDF pages created.`);
+      // Create task for each page
+      const tasks = [];
 
-      // Build batch tasks for each page
-      const { tasks, jsonlBuffer } = await this.buildBatchTasks(pdfPages, ANALYSIS_SCHEMA, PROMPT);
+      for (const { pageNumber, base64 } of pages) {
+        const task = {
+          custom_id: pageNumber.toString(),
+          method: "POST",
+          url: "/v1/chat/completions",
+          body: {
+            model: "gpt-4o",
+            response_format: {
+              type: "json_schema",
+              json_schema: ANALYSIS_SCHEMA,
+            },
+            messages: [
+              {
+                role: "system",
+                content: PROMPT,
+              },
+              {
+                role: "user",
+                content: [
+                  {
+                    type: "file",
+                    file: {
+                      file_data: `data:application/pdf;base64,${base64}`,
+                      filename: "zoot.pdf",
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        };
+        tasks.push(task);
+      }
       console.log(`Created ${tasks.length} batch tasks.`);
-      
-      // Upload batch tasks using buffer
-      const batchId = await this.uploadBatchTasks(jsonlBuffer);
-      console.log(`Batch uploaded with ID: ${batchId}`);
 
-      // Wait for completion
-      const results = await this.waitForBatchCompletion(
-        batchId,
-        10 * 1000
-      );
-      console.log(`Processing completed! Results stored in buffer`);
-      console.log(`Total results: ${results.results?.length || 0}`);
-      // From inside results => rawResults => we have list of objects, we need extracted_text, short_description, topic
-      const rawResults = results.rawResults;
-      
-      // Parse the raw results string into an array of JSON objects
-      const parsedResults = rawResults
-        .trim()
-        .split('\n')
-        .map(line => JSON.parse(line))
-        .map(item => JSON.parse(item.response.body.choices[0].message.content));
-      
-      return parsedResults;
+      // Create a file with the batch requests
+      const batchFile = tasks.map((req) => JSON.stringify(req)).join("\n");
+
+      // Upload the batch file to OpenAI
+      const file = await openai.files.create({
+        file: new File([batchFile], `batch-${materialId}.jsonl`, {
+          type: "application/jsonl",
+        }),
+        purpose: "batch",
+      });
+      console.log(`File uploaded with ID: ${file.id}`);
+      console.log(`Uploaded batch file ${file.id} for material ${materialId}`);
+
+      // Create the batch
+      const batch = await openai.batches.create({
+        input_file_id: file.id,
+        endpoint: "/v1/chat/completions",
+        completion_window: "24h",
+        metadata: {
+          materialId: materialId,
+          description: `PDF processing for material ${materialId}`,
+        },
+      });
+
+      console.log(`Created batch ${batch.id} for material ${materialId}`);
+      return batch.id;
     } catch (error) {
-      console.error("Error using OpenAI API:", error);
-      throw new Error(
-        `Failed to process PDF using OpenAI API: ${error.message}`
+      console.error(
+        `Error creating batch request for material ${materialId}:`,
+        error
       );
+      throw error;
+    }
+  }
+
+  /**
+   * Process completed batch results
+   */
+  async processBatchResults(material, results, prisma) {
+    try {
+      console.log(`Processing batch results for material ${material.id}`);
+
+      // Extract the response content from batch results
+      const rawResults = results
+        .map((result) => {
+          if (
+            result.response &&
+            result.response.body &&
+            result.response.body.choices
+          ) {
+            const content = result.response.body.choices[0]?.message?.content;
+            if (content) {
+              try {
+                return JSON.parse(content);
+              } catch (e) {
+                console.error("Failed to parse batch result content:", e);
+                return null;
+              }
+            }
+          }
+          return null;
+        })
+        .filter(Boolean);
+
+      if (rawResults.length === 0) {
+        throw new Error("No valid results found in batch response");
+      }
+
+      // Include ALL pages - no filtering, include all content with metadata and nice formatting
+      const mergedText = rawResults
+        .map((result, index) => {
+          const pageNumber = index + 1;
+          const text = result.extracted_text || "";
+          const description = result.short_description || "";
+          const topic = result.topic || "";
+
+          return `<PAGE-${pageNumber}>
+<!-- METADATA -->
+<!-- TOPIC: ${topic} -->
+<!-- DESCRIPTION: ${description} -->
+<!-- END METADATA -->
+
+${text}
+</PAGE-${pageNumber}>`;
+        })
+        .filter((text) => text && text.trim())
+        .join("\n\n");
+
+      console.log("Merged Text with metadata created");
+
+      // Generate a comprehensive, readable title and description from all pages
+      const allTopics = rawResults.map((r) => r.topic || "").filter(Boolean);
+      const allDescriptions = rawResults
+        .map((r) => r.short_description || "")
+        .filter(Boolean);
+
+      const titleDescriptionPrompt = `Based on the following content from a document, generate:
+1. A clear, descriptive title (5-12 words, suitable for a study material)
+2. A comprehensive description (2-3 sentences explaining what this document covers)
+
+Page Topics:
+${allTopics.map((topic, i) => `Page ${i + 1}: ${topic}`).join("\n")}
+
+Page Descriptions:
+${allDescriptions.map((desc, i) => `Page ${i + 1}: ${desc}`).join("\n")}
+
+Return your response as JSON:
+{
+  "title": "...",
+  "description": "..."
+}`;
+
+      let finalTitle = "Study Material";
+      let finalDescription = "Comprehensive study content";
+
+      try {
+        const titleResponse = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [{ role: "user", content: titleDescriptionPrompt }],
+          temperature: 0.3,
+          max_tokens: 500,
+          response_format: { type: "json_object" },
+        });
+
+        const titleResult = JSON.parse(
+          titleResponse.choices[0].message.content.trim()
+        );
+        finalTitle = titleResult.title || finalTitle;
+        finalDescription = titleResult.description || finalDescription;
+      } catch (titleError) {
+        console.error("Error generating title/description:", titleError);
+        // Fallback: use the first page's topic as title
+        finalTitle = allTopics[0] || "Study Material";
+        finalDescription = allDescriptions[0] || "Comprehensive study content";
+      }
+
+      console.log("Final Title:", finalTitle);
+      console.log("Final Description:", finalDescription);
+
+      // Update the material with the processed content
+      await prisma.material.update({
+        where: { id: material.id },
+        data: {
+          rawContent: mergedText,
+          title: finalTitle,
+          description: finalDescription,
+          topic: finalTitle, // Use the same title as topic for consistency
+          status: "Ready",
+        },
+      });
+
+      console.log(
+        `Successfully processed batch results for material ${material.id}`
+      );
+    } catch (error) {
+      console.error(
+        `Error processing batch results for material ${material.id}:`,
+        error
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Split PDF into individual pages and return as base64 strings
+   * @param {Buffer} pdfBuffer - PDF file buffer
+   * @return {Promise<Array>} - Array of objects with page number and base64 content
+   */
+  async splitPdf(pdfBuffer) {
+    try {
+      const pdfDoc = await PDFDocument.load(pdfBuffer);
+      const pageCount = pdfDoc.getPageCount();
+      const pages = [];
+
+      for (let i = 0; i < pageCount; i++) {
+        // Create a new PDF document for this page
+        const newPdf = await PDFDocument.create();
+        const [copiedPage] = await newPdf.copyPages(pdfDoc, [i]);
+        newPdf.addPage(copiedPage);
+
+        // Convert the single page PDF to bytes
+        const pdfBytes = await newPdf.save();
+
+        // For now, we'll send the PDF page as base64 to OpenAI
+        // OpenAI can handle PDF input directly
+        const base64 = Buffer.from(pdfBytes).toString("base64");
+
+        pages.push({
+          pageNumber: i + 1,
+          base64: base64,
+        });
+      }
+
+      console.log(`Successfully split PDF into ${pages.length} pages`);
+      return pages;
+    } catch (error) {
+      console.error("Error splitting PDF:", error);
+      throw error;
     }
   }
 }
@@ -513,8 +580,7 @@ class AudioProcessor extends FileProcessor {
         `Starting audio processing for material ID: ${materialId}, URL: ${fileUrl}`
       );
 
-      // Update status to processing
-      await this.updateStatus(materialId, "processing", prisma);
+      await this.updateStatus(materialId, "Processing", prisma);
 
       if (updateProgress) updateProgress(20, "Downloading audio file...");
 
@@ -524,14 +590,9 @@ class AudioProcessor extends FileProcessor {
         `Audio downloaded successfully for ${materialId}, size: ${audioBuffer.length} bytes`
       );
 
-      if (updateProgress)
-        updateProgress(
-          40,
-          "Sending audio to OpenAI Whisper for transcription..."
-        );
+      if (updateProgress) updateProgress(40, "Transcribing audio...");
 
-      // Update status to reflect the current step
-      await this.updateStatus(materialId, "Transcribing audio", prisma);
+      await this.updateStatus(materialId, "Converting to text", prisma);
 
       // Transcribe audio and generate description in a single API call
       const { transcribedText, description } = await this.transcribeWithWhisper(
@@ -543,7 +604,7 @@ class AudioProcessor extends FileProcessor {
       );
       console.log(`Description generated for ${materialId}: ${description}`);
 
-      if (updateProgress) updateProgress(80, "Storing transcribed content...");
+      if (updateProgress) updateProgress(80, "Storing transcription...");
 
       // Save the transcribed text and description to the database
       await prisma.material.update({
@@ -554,7 +615,6 @@ class AudioProcessor extends FileProcessor {
           status: "Ready", // Use consistent status naming
         },
       });
-      console.log(`Processing completed for ${materialId}`);
 
       if (updateProgress) updateProgress(100, "Processing complete");
 
@@ -566,9 +626,8 @@ class AudioProcessor extends FileProcessor {
     } catch (error) {
       console.error(`Audio processing error for ${materialId}:`, error);
 
-      // Update status to error
       try {
-        await this.updateStatus(materialId, "error", prisma);
+        await this.updateStatus(materialId, "Error", prisma);
       } catch (statusError) {
         console.error(
           `Failed to update error status for ${materialId}:`,
@@ -576,7 +635,7 @@ class AudioProcessor extends FileProcessor {
         );
       }
 
-      if (updateProgress) updateProgress(100, "Error processing file");
+      if (updateProgress) updateProgress(100, "Error processing audio");
 
       return {
         success: false,
@@ -651,26 +710,16 @@ class AudioProcessor extends FileProcessor {
  * Default processor for unsupported file types
  */
 class DefaultProcessor extends FileProcessor {
-  async process(fileUrl, { materialId, prisma }) {
-    await this.updateStatus(materialId, "unsupported", prisma);
+  async process(fileUrl, { materialId, prisma, updateProgress }) {
+    console.log(`Unsupported file type for material ${materialId}`);
+
+    await this.updateStatus(materialId, "Unsupported", prisma);
+
+    if (updateProgress) updateProgress(100, "Unsupported file type");
+
     return {
       success: false,
       error: "Unsupported file type",
     };
   }
-}
-
-/**
- * Process a file based on its type
- * @param {string} fileUrl - URL to the file
- * @param {string} fileType - MIME type of the file
- * @param {Object} options - Additional options
- * @returns {Promise<Object>} - Processing result
- */
-export async function processFile(fileUrl, fileType, options = {}) {
-  console.log(
-    `Processing file of type ${fileType}, materialId: ${options.materialId}`
-  );
-  const processor = getFileProcessor(fileType);
-  return processor.process(fileUrl, options);
 }
