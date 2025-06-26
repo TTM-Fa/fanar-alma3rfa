@@ -1,4 +1,10 @@
 "use client";
+
+// This page allows users to create flashcards based on a specific study material.
+// It fetches the material details, allows customization of flashcard parameters,
+// and handles the generation of flashcards using an API endpoint.
+
+
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -38,16 +44,20 @@ import {
   Clipboard,
 } from "lucide-react";
 
-const FlashcardCreationPage = () => {
-  const [material, setMaterial] = useState(null);
+const FlashcardCreationPage = () => {  const [material, setMaterial] = useState(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [generatedDeckId, setGeneratedDeckId] = useState(null);
   const [error, setError] = useState(null);
+  const [generationStage, setGenerationStage] = useState("");
+  const [generationProgress, setGenerationProgress] = useState(0);
+  const [estimatedTime, setEstimatedTime] = useState(null);
+  const [startTime, setStartTime] = useState(null);
   const [flashcardParams, setFlashcardParams] = useState({
     title: "",
     description: "",
     numFlashcards: 10,
+    generateImages: false, // New option for image generation
   });
 
   const params = useParams();
@@ -107,39 +117,100 @@ const FlashcardCreationPage = () => {
       [param]: value,
     }));
   };
-
   const handleGenerateFlashcards = async () => {
     setGenerating(true);
     setError(null);
+    setGenerationStage("Initializing...");
+    setGenerationProgress(0);
+    setStartTime(Date.now());
+    
+    // Estimate time based on parameters
+    const baseTime = flashcardParams.numFlashcards * 3; // 3 seconds per flashcard
+    const imageTime = flashcardParams.generateImages ? flashcardParams.numFlashcards * 15 : 0; // 15 seconds per image
+    setEstimatedTime(baseTime + imageTime);
+
+    // Set up progress updates
+    const progressInterval = setInterval(() => {
+      setGenerationProgress(prev => {
+        if (prev < 90) {
+          return prev + Math.random() * 5; // Gradual progress increase
+        }
+        return prev;
+      });
+    }, 2000);
+
+    // Set up stage updates
+    const stageTimeout1 = setTimeout(() => setGenerationStage("Analyzing content..."), 3000);
+    const stageTimeout2 = setTimeout(() => setGenerationStage("Generating flashcards..."), 8000);
+    const stageTimeout3 = setTimeout(() => {
+      if (flashcardParams.generateImages) {
+        setGenerationStage("Creating images (this may take a while)...");
+      }
+    }, 15000);
+    const stageTimeout4 = setTimeout(() => setGenerationStage("Finalizing..."), Math.max(20000, (baseTime + imageTime) * 800));
 
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minute timeout
+
       const response = await fetch("/api/flashcards/generate", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
+        signal: controller.signal,
         body: JSON.stringify({
           materialId,
           numFlashcards: flashcardParams.numFlashcards,
           title: flashcardParams.title,
           description: flashcardParams.description,
+          generateImages: flashcardParams.generateImages,
         }),
-      });
+      });      clearTimeout(timeoutId);
+      clearInterval(progressInterval);
+      clearTimeout(stageTimeout1);
+      clearTimeout(stageTimeout2);
+      clearTimeout(stageTimeout3);
+      clearTimeout(stageTimeout4);
+
+      // Check if response is JSON
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const textResponse = await response.text();
+        console.error("Non-JSON response received:", textResponse);
+        throw new Error(`Server returned HTML error page (Status: ${response.status}). This usually indicates a server crash or configuration issue.`);
+      }
 
       const data = await response.json();
 
       if (!response.ok) {
+        if (response.status === 504 || response.status === 524) {
+          throw new Error("Generation is taking longer than expected. This often happens with image generation. Please try again or disable image generation for faster results.");
+        }
         throw new Error(data.error || "Failed to generate flashcards");
       }
 
       if (data.success && data.deck) {
+        setGenerationProgress(100);
+        setGenerationStage("Complete!");
         setGeneratedDeckId(data.deck.id);
       } else {
         throw new Error("No flashcard data received");
       }
     } catch (error) {
+      clearInterval(progressInterval);
+      clearTimeout(stageTimeout1);
+      clearTimeout(stageTimeout2);
+      clearTimeout(stageTimeout3);
+      clearTimeout(stageTimeout4);
+      
       console.error("Error generating flashcards:", error);
-      setError(error.message);
+      
+      if (error.name === 'AbortError') {
+        setError("Request timeout. Generation may still be in progress on the server. Please wait a moment and check your flashcard list, or try again with fewer flashcards or without images.");
+      } else {
+        setError(error.message);
+      }
     } finally {
       setGenerating(false);
     }
@@ -403,8 +474,32 @@ const FlashcardCreationPage = () => {
                       >
                         {value}
                       </Button>
-                    ))}
+                    ))}                  </div>
+                </div>
+
+                {/* Image Generation Option */}
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="generate-images"
+                      checked={flashcardParams.generateImages}
+                      onChange={(e) =>
+                        handleFlashcardParamChange("generateImages", e.target.checked)
+                      }
+                      className="h-4 w-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500"
+                    />
+                    <Label 
+                      htmlFor="generate-images" 
+                      className="text-sm font-medium text-gray-700 cursor-pointer"
+                    >
+                      Generate images for flashcards
+                    </Label>
                   </div>
+                  <p className="text-xs text-gray-500 ml-6">
+                    AI will create visual aids that help illustrate the flashcard answers. 
+                    This may take longer to complete.
+                  </p>
                 </div>
 
                 {/* Error message */}
@@ -466,27 +561,102 @@ const FlashcardCreationPage = () => {
                   definitions to help you memorize important information.
                 </p>
               </CardContent>
-            </Card>
-
-            {/* Generation info card - Now on the right */}
+            </Card>            {/* Generation info card - Enhanced progress display */}
             {generating && (
               <Card className="bg-amber-50 border-amber-100 shadow-sm">
                 <CardContent className="p-6">
                   <div className="flex flex-col items-center text-center">
                     <Loader className="h-12 w-12 text-amber-600 animate-spin mb-4" />
                     <h3 className="text-lg font-medium text-amber-800 mb-2">
-                      Generating Your Flashcards
+                      {generationStage || "Generating Your Flashcards"}
                     </h3>
+                    
+                    {/* Progress bar */}
+                    <div className="w-full mb-3">
+                      <div className="flex justify-between text-xs text-amber-600 mb-1">
+                        <span>Progress</span>
+                        <span>{Math.round(generationProgress)}%</span>
+                      </div>
+                      <Progress 
+                        value={generationProgress} 
+                        className="w-full h-2"
+                      />
+                    </div>
+                    
+                    {/* Time estimates */}
+                    {estimatedTime && startTime && (
+                      <div className="text-xs text-amber-600 mb-2">
+                        <div>Estimated time: ~{Math.round(estimatedTime / 60)} minutes</div>
+                        <div>Elapsed: {Math.round((Date.now() - startTime) / 1000)}s</div>
+                      </div>
+                    )}
+                    
                     <p className="text-sm text-amber-600">
-                      Our AI is analyzing the material and creating effective
-                      flashcards. This may take a minute or two.
+                      {flashcardParams.generateImages 
+                        ? "Generating flashcards with images. This process may take several minutes as each image is carefully created."
+                        : "Our AI is analyzing the material and creating effective flashcards. This usually takes 1-2 minutes."
+                      }
                     </p>
+                    
+                    {flashcardParams.generateImages && (
+                      <div className="mt-3 p-2 bg-amber-100 rounded-lg">
+                        <p className="text-xs text-amber-700">
+                          💡 Tip: Image generation can be slow. If this takes too long, you can cancel and try again without images for faster results.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
             )}
 
-            {/* Tips card - Now on the right */}
+            {/* Error display - Enhanced with suggestions */}
+            {error && !generating && (
+              <Card className="bg-red-50 border-red-100 shadow-sm">
+                <CardContent className="p-6">
+                  <div className="flex flex-col items-center text-center">
+                    <AlertCircle className="h-12 w-12 text-red-600 mb-4" />
+                    <h3 className="text-lg font-medium text-red-800 mb-2">
+                      Generation Error
+                    </h3>
+                    <p className="text-sm text-red-600 mb-4">
+                      {error}
+                    </p>
+                    
+                    {/* Helpful suggestions based on error type */}
+                    <div className="bg-red-100 rounded-lg p-3 w-full">
+                      <h4 className="text-sm font-medium text-red-800 mb-2">Suggestions:</h4>
+                      <ul className="text-xs text-red-700 space-y-1 list-disc text-left pl-4">
+                        {error.includes("timeout") || error.includes("longer than expected") ? (
+                          <>
+                            <li>Try generating fewer flashcards (5-8 instead of {flashcardParams.numFlashcards})</li>
+                            <li>Disable image generation for faster results</li>
+                            <li>Check your flashcard list - generation may have completed</li>
+                            <li>Wait a few minutes before trying again</li>
+                          </>
+                        ) : (
+                          <>
+                            <li>Check your internet connection</li>
+                            <li>Try with fewer flashcards</li>
+                            <li>Ensure the material has enough content</li>
+                            <li>Try again in a few moments</li>
+                          </>
+                        )}
+                      </ul>
+                    </div>
+                    
+                    <Button
+                      onClick={() => setError(null)}
+                      variant="outline"
+                      className="mt-4 border-red-200 text-red-700 hover:bg-red-50"
+                    >
+                      Try Again
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>            )}
+            
+            {/* Tips card - Enhanced with timing info */}
             <Card className="bg-gradient-to-br from-amber-50 to-orange-50 border-none shadow-sm">
               <CardContent className="p-4">
                 <div className="flex items-start">
@@ -498,12 +668,35 @@ const FlashcardCreationPage = () => {
                     <ul className="text-xs text-gray-600 space-y-1 list-disc pl-4">
                       <li>Choose fewer cards for core concepts only</li>
                       <li>Use more cards for comprehensive coverage</li>
+                      <li>Text-only generation: ~1-2 minutes</li>
+                      <li>With images: ~5-15 minutes (be patient!)</li>
                       <li>Review your flashcards regularly for best results</li>
                     </ul>
                   </div>
                 </div>
               </CardContent>
             </Card>
+
+            {/* Performance warning for image generation */}
+            {flashcardParams.generateImages && (
+              <Card className="bg-yellow-50 border-yellow-200 shadow-sm">
+                <CardContent className="p-4">
+                  <div className="flex items-start">
+                    <AlertTriangle className="h-5 w-5 text-yellow-600 mr-2 mt-0.5" />
+                    <div>
+                      <h4 className="text-sm font-medium text-yellow-800 mb-1">
+                        Image Generation Enabled
+                      </h4>
+                      <p className="text-xs text-yellow-700">
+                        Image generation significantly increases processing time (up to 15 minutes). 
+                        Each image is carefully created to be relevant and text-free. 
+                        Consider starting with fewer flashcards for your first try.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       </div>

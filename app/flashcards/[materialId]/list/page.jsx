@@ -1,4 +1,8 @@
 "use client";
+// This page is for listing flashcard decks associated with a specific study material
+// It allows users to view, create, and manage flashcard decks for studying purposes
+// This page is the first step in the flashcard creation process
+
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";

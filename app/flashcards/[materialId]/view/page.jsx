@@ -1,4 +1,10 @@
 "use client";
+
+// This page is for viewing flashcards in a deck
+// It allows users to flip cards, mark them as mastered, shuffle the deck, and navigate through cards
+// This is the last step in the flashcard learning process
+
+
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -265,10 +271,9 @@ const FlashcardsPage = () => {
           </div>
         </div>
 
-        {/* Flashcard */}
-        <div className={`${slideInClasses} mb-6`}>
+        {/* Flashcard */}        <div className={`${slideInClasses} mb-6`}>
           <div
-            className="relative min-h-[400px] w-full cursor-pointer"
+            className="relative min-h-[500px] w-full cursor-pointer"
             onClick={handleCardFlip}
             style={{ perspective: "1000px" }}
           >
@@ -306,9 +311,7 @@ const FlashcardsPage = () => {
                     <p className="text-white/70 text-sm">Tap card to flip</p>
                   </div>
                 </div>
-              </div>
-
-              {/* Back of card */}
+              </div>              {/* Back of card */}
               <div
                 className="absolute inset-0 w-full h-full rounded-2xl p-8 shadow-lg bg-white border-2 border-t-8"
                 style={{
@@ -326,12 +329,26 @@ const FlashcardsPage = () => {
                     <Badge className="bg-gray-100 text-gray-800 text-xs">
                       Card {currentCardIndex + 1}
                     </Badge>
-                  </div>
-
-                  <div className="flex-1 flex items-center justify-center text-center">
-                    <div className="text-xl text-gray-800 leading-relaxed">
-                      {currentCard.back}
+                  </div>                  <div className={`flex-1 flex items-center justify-center ${currentCard.imageUrl ? 'gap-6' : ''}`}>
+                    {/* Text content */}
+                    <div className={`text-center ${currentCard.imageUrl ? 'flex-1' : 'w-full'}`}>
+                      <div className="text-xl text-gray-800 leading-relaxed">
+                        {currentCard.back}
+                      </div>
                     </div>
+
+                    {/* Image - only show if imageUrl exists */}
+                    {currentCard.imageUrl && (
+                      <div className="flex-shrink-0 w-48 h-48">
+                        <div className="w-full h-full rounded-xl overflow-hidden">
+                          <img
+                            src={currentCard.imageUrl}
+                            alt="Flashcard visual aid"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex justify-center items-center gap-2">
