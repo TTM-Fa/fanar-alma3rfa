@@ -52,12 +52,12 @@ const FlashcardCreationPage = () => {  const [material, setMaterial] = useState(
   const [generationStage, setGenerationStage] = useState("");
   const [generationProgress, setGenerationProgress] = useState(0);
   const [estimatedTime, setEstimatedTime] = useState(null);
-  const [startTime, setStartTime] = useState(null);
-  const [flashcardParams, setFlashcardParams] = useState({
+  const [startTime, setStartTime] = useState(null);  const [flashcardParams, setFlashcardParams] = useState({
     title: "",
     description: "",
     numFlashcards: 10,
     generateImages: false, // New option for image generation
+    translateToArabic: false, // New option for Arabic translation
   });
 
   const params = useParams();
@@ -123,11 +123,11 @@ const FlashcardCreationPage = () => {  const [material, setMaterial] = useState(
     setGenerationStage("Initializing...");
     setGenerationProgress(0);
     setStartTime(Date.now());
-    
-    // Estimate time based on parameters
+      // Estimate time based on parameters
     const baseTime = flashcardParams.numFlashcards * 3; // 3 seconds per flashcard
     const imageTime = flashcardParams.generateImages ? flashcardParams.numFlashcards * 15 : 0; // 15 seconds per image
-    setEstimatedTime(baseTime + imageTime);
+    const translationTime = flashcardParams.translateToArabic ? flashcardParams.numFlashcards * 2 : 0; // 2 seconds per translation
+    setEstimatedTime(baseTime + imageTime + translationTime);
 
     // Set up progress updates
     const progressInterval = setInterval(() => {
@@ -137,34 +137,39 @@ const FlashcardCreationPage = () => {  const [material, setMaterial] = useState(
         }
         return prev;
       });
-    }, 2000);
-
-    // Set up stage updates
+    }, 2000);    // Set up stage updates
     const stageTimeout1 = setTimeout(() => setGenerationStage("Analyzing content..."), 3000);
     const stageTimeout2 = setTimeout(() => setGenerationStage("Generating flashcards..."), 8000);
     const stageTimeout3 = setTimeout(() => {
-      if (flashcardParams.generateImages) {
+      if (flashcardParams.translateToArabic && !flashcardParams.generateImages) {
+        setGenerationStage("Translating to Arabic...");
+      } else if (flashcardParams.generateImages) {
         setGenerationStage("Creating images (this may take a while)...");
       }
     }, 15000);
-    const stageTimeout4 = setTimeout(() => setGenerationStage("Finalizing..."), Math.max(20000, (baseTime + imageTime) * 800));
+    const stageTimeout4 = setTimeout(() => {
+      if (flashcardParams.translateToArabic && flashcardParams.generateImages) {
+        setGenerationStage("Translating to Arabic...");
+      }
+    }, Math.max(25000, (baseTime + imageTime) * 800));
+    const stageTimeout5 = setTimeout(() => setGenerationStage("Finalizing..."), Math.max(30000, (baseTime + imageTime + translationTime) * 800));
 
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minute timeout
+      const timeoutId = setTimeout(() => controller.abort(), 600000); // 10 minute timeout
 
       const response = await fetch("/api/flashcards/generate", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        signal: controller.signal,
-        body: JSON.stringify({
+        signal: controller.signal,        body: JSON.stringify({
           materialId,
           numFlashcards: flashcardParams.numFlashcards,
           title: flashcardParams.title,
           description: flashcardParams.description,
           generateImages: flashcardParams.generateImages,
+          translateToArabic: flashcardParams.translateToArabic,
         }),
       });      clearTimeout(timeoutId);
       clearInterval(progressInterval);
@@ -172,6 +177,7 @@ const FlashcardCreationPage = () => {  const [material, setMaterial] = useState(
       clearTimeout(stageTimeout2);
       clearTimeout(stageTimeout3);
       clearTimeout(stageTimeout4);
+      clearTimeout(stageTimeout5);
 
       // Check if response is JSON
       const contentType = response.headers.get("content-type");
@@ -196,13 +202,13 @@ const FlashcardCreationPage = () => {  const [material, setMaterial] = useState(
         setGeneratedDeckId(data.deck.id);
       } else {
         throw new Error("No flashcard data received");
-      }
-    } catch (error) {
+      }    } catch (error) {
       clearInterval(progressInterval);
       clearTimeout(stageTimeout1);
       clearTimeout(stageTimeout2);
       clearTimeout(stageTimeout3);
       clearTimeout(stageTimeout4);
+      clearTimeout(stageTimeout5);
       
       console.error("Error generating flashcards:", error);
       
@@ -475,9 +481,7 @@ const FlashcardCreationPage = () => {  const [material, setMaterial] = useState(
                         {value}
                       </Button>
                     ))}                  </div>
-                </div>
-
-                {/* Image Generation Option */}
+                </div>                {/* Image Generation Option */}
                 <div className="space-y-2">
                   <div className="flex items-center space-x-2">
                     <input
@@ -500,6 +504,45 @@ const FlashcardCreationPage = () => {  const [material, setMaterial] = useState(
                     AI will create visual aids that help illustrate the flashcard answers. 
                     This may take longer to complete.
                   </p>
+                </div>
+
+                {/* Arabic Translation Option */}
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="translate-to-arabic"
+                      checked={flashcardParams.translateToArabic}
+                      onChange={(e) =>
+                        handleFlashcardParamChange("translateToArabic", e.target.checked)
+                      }
+                      className="h-4 w-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                    />
+                    <Label 
+                      htmlFor="translate-to-arabic" 
+                      className="text-sm font-medium text-gray-700 cursor-pointer flex items-center"
+                    >
+                      <span className="ml-1">🌐 Translate flashcards to Arabic</span>
+                    </Label>
+                  </div>
+                  <p className="text-xs text-gray-500 ml-6">
+                    Generate flashcards in Arabic to help non-English speakers understand the material better. 
+                    Original English text will be preserved for reference.
+                  </p>
+                  {flashcardParams.translateToArabic && (
+                    <div className="ml-6 mt-2 p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+                      <div className="flex items-start space-x-2">
+                        <div className="text-emerald-600 text-lg">🇸🇦</div>
+                        <div>
+                          <p className="text-sm font-medium text-emerald-800">Arabic Translation Enabled</p>
+                          <p className="text-xs text-emerald-700 mt-1">
+                            Questions and answers will be translated to Arabic using advanced AI translation. 
+                            This may add extra processing time.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Error message */}
@@ -590,19 +633,41 @@ const FlashcardCreationPage = () => {  const [material, setMaterial] = useState(
                         <div>Elapsed: {Math.round((Date.now() - startTime) / 1000)}s</div>
                       </div>
                     )}
-                    
-                    <p className="text-sm text-amber-600">
-                      {flashcardParams.generateImages 
+                      <p className="text-sm text-amber-600">
+                      {flashcardParams.generateImages && flashcardParams.translateToArabic
+                        ? "Generating flashcards with images and Arabic translation. This comprehensive process may take 10-15 minutes."
+                        : flashcardParams.generateImages 
                         ? "Generating flashcards with images. This process may take several minutes as each image is carefully created."
+                        : flashcardParams.translateToArabic
+                        ? "Generating flashcards with Arabic translation. This may take a few extra minutes for translation processing."
                         : "Our AI is analyzing the material and creating effective flashcards. This usually takes 1-2 minutes."
                       }
                     </p>
                     
-                    {flashcardParams.generateImages && (
-                      <div className="mt-3 p-2 bg-amber-100 rounded-lg">
-                        <p className="text-xs text-amber-700">
-                          💡 Tip: Image generation can be slow. If this takes too long, you can cancel and try again without images for faster results.
-                        </p>
+                    {/* Enhanced tips for combined options */}
+                    {(flashcardParams.generateImages || flashcardParams.translateToArabic) && (
+                      <div className="mt-3 space-y-2">
+                        {flashcardParams.generateImages && (
+                          <div className="p-2 bg-amber-100 rounded-lg">
+                            <p className="text-xs text-amber-700">
+                              🎨 Image generation: Each image is carefully created to be relevant and text-free.
+                            </p>
+                          </div>
+                        )}
+                        {flashcardParams.translateToArabic && (
+                          <div className="p-2 bg-emerald-100 rounded-lg">
+                            <p className="text-xs text-emerald-700">
+                              🌐 Arabic translation: Questions and answers are being translated using advanced AI.
+                            </p>
+                          </div>
+                        )}
+                        {flashcardParams.generateImages && flashcardParams.translateToArabic && (
+                          <div className="p-2 bg-blue-100 rounded-lg">
+                            <p className="text-xs text-blue-700">
+                              💡 Tip: With both images and translation enabled, this process takes longer but creates comprehensive Arabic flashcards with visual aids.
+                            </p>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -664,12 +729,13 @@ const FlashcardCreationPage = () => {  const [material, setMaterial] = useState(
                   <div>
                     <h4 className="text-sm font-medium text-gray-800 mb-1">
                       Tips for Better Flashcards
-                    </h4>
-                    <ul className="text-xs text-gray-600 space-y-1 list-disc pl-4">
+                    </h4>                    <ul className="text-xs text-gray-600 space-y-1 list-disc pl-4">
                       <li>Choose fewer cards for core concepts only</li>
                       <li>Use more cards for comprehensive coverage</li>
                       <li>Text-only generation: ~1-2 minutes</li>
                       <li>With images: ~5-15 minutes (be patient!)</li>
+                      <li>With Arabic translation: +2-5 minutes</li>
+                      <li>Combined options: ~15-20 minutes total</li>
                       <li>Review your flashcards regularly for best results</li>
                     </ul>
                   </div>
@@ -691,6 +757,47 @@ const FlashcardCreationPage = () => {  const [material, setMaterial] = useState(
                         Image generation significantly increases processing time (up to 15 minutes). 
                         Each image is carefully created to be relevant and text-free. 
                         Consider starting with fewer flashcards for your first try.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Arabic Translation info card */}
+            {flashcardParams.translateToArabic && (
+              <Card className="bg-emerald-50 border-emerald-200 shadow-sm">
+                <CardContent className="p-4">
+                  <div className="flex items-start">
+                    <div className="text-emerald-600 text-lg mr-2 mt-0.5">🌐</div>
+                    <div>
+                      <h4 className="text-sm font-medium text-emerald-800 mb-1">
+                        Arabic Translation Enabled
+                      </h4>
+                      <p className="text-xs text-emerald-700">
+                        Flashcards will be generated in Arabic using advanced AI translation. 
+                        Both questions and answers will be translated while preserving the original meaning. 
+                        This adds 2-5 minutes to processing time.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Combined options warning */}
+            {flashcardParams.generateImages && flashcardParams.translateToArabic && (
+              <Card className="bg-blue-50 border-blue-200 shadow-sm">
+                <CardContent className="p-4">
+                  <div className="flex items-start">
+                    <div className="text-blue-600 text-lg mr-2 mt-0.5">⚡</div>
+                    <div>
+                      <h4 className="text-sm font-medium text-blue-800 mb-1">
+                        Comprehensive Generation
+                      </h4>
+                      <p className="text-xs text-blue-700">
+                        You've enabled both images and Arabic translation. This creates the most comprehensive flashcards 
+                        but may take 15-20 minutes to complete. Perfect for thorough study materials!
                       </p>
                     </div>
                   </div>

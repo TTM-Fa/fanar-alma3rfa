@@ -13,7 +13,7 @@ class ImageGenerator {
         this.openaiApiKey = process.env.OPENAI_API_KEY;
         this.fanarApiUrl = options.apiUrl || 'https://api.fanar.qa/v1/images/generations';
         this.model = options.model || 'Fanar-ImageGen-1';
-        this.requestDelay = options.requestDelay || 2000;
+        this.requestDelay = options.requestDelay || 500;
         
         // Initialize OpenAI client
         if (this.openaiApiKey) {
@@ -34,11 +34,19 @@ class ImageGenerator {
      */
     async generateFlashcardImage(flashcardFront, flashcardBack, flashcardId, deckId = null, cardIndex = 0) {
         try {
+            // Validate input parameters
+            if (!flashcardFront && !flashcardBack) {
+                throw new Error('Both flashcardFront and flashcardBack are undefined');
+            }
+            
+            const front = flashcardFront || 'Question not available';
+            const back = flashcardBack || 'Answer not available';
+            
             console.log(`🔄 Step 1: Evaluating answer suitability for image generation...`);
-            console.log(`Processing: "${flashcardFront.substring(0, 50)}..."`);
+            console.log(`Processing: "${front.toString().substring(0, 50)}..."`);
             
             // Step 1: Use OpenAI to determine if image is suitable and create prompt
-            const promptResult = await this.generateImagePromptWithOpenAI(flashcardBack);
+            const promptResult = await this.generateImagePromptWithOpenAI(back);
             
             if (!promptResult || !promptResult.has_response) {
                 console.log(`ℹ️ Answer not suitable for image generation: ${promptResult?.response || 'Evaluation failed'}`);
@@ -205,25 +213,45 @@ CRITICAL: Pure visual representation only - absolutely no text or written elemen
         }
     }    /**
      * Generate images for multiple flashcards with smart filtering
-     */
-    async generateFlashcardImages(flashcards, deckId = null, generateForAll = false) {
+     */    async generateFlashcardImages(flashcards, deckId = null, generateForAll = false) {
         const results = [];
+        
+        if (!flashcards || !Array.isArray(flashcards) || flashcards.length === 0) {
+            console.warn('⚠️ No flashcards provided for image generation');
+            return results;
+        }
         
         console.log(`🎨 Starting image generation for ${flashcards.length} flashcards...`);
         
         for (let i = 0; i < flashcards.length; i++) {
             const flashcard = flashcards[i];
             
+            // Validate flashcard structure
+            if (!flashcard) {
+                console.warn(`⚠️ Flashcard at index ${i} is undefined, skipping...`);
+                results.push({
+                    flashcard: { front: 'Invalid', back: 'Invalid' },
+                    imageResult: { success: false, error: 'Flashcard is undefined' }
+                });
+                continue;
+            }
+            
+            const front = flashcard.front || flashcard.question || 'Question not available';
+            const back = flashcard.back || flashcard.answer || 'Answer not available';
+            const cardId = flashcard.id || `temp_${i + 1}`;
+            
+            console.log(`🔄 Processing flashcard ${i + 1}/${flashcards.length}: "${front.toString().substring(0, 30)}..."`);
+            
             const imageResult = await this.generateFlashcardImage(
-                flashcard.front,
-                flashcard.back,
-                flashcard.id || `temp_${i + 1}`,
+                front,
+                back,
+                cardId,
                 deckId,
                 i
             );
             
             results.push({
-                flashcard,
+                flashcard: { front, back, id: cardId },
                 imageResult
             });
             
