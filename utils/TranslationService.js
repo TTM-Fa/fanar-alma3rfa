@@ -4,18 +4,17 @@ import axios from 'axios';
  * Streamlined Translation Service for Fanar Alma3rfa
  * Supports English to Arabic translation for flashcards
  */
-class TranslationService {
-    constructor(apiKey, options = {}) {
+class TranslationService {    constructor(apiKey, options = {}) {
         this.apiKey = apiKey;
         this.apiUrl = options.apiUrl || 'https://api.fanar.qa/v1/translations';
         this.model = options.model || 'Fanar-Shaheen-MT-1';
         this.defaultLangPair = options.defaultLangPair || 'en-ar'; // English to Arabic
         this.preprocessing = options.preprocessing || 'default';
-        this.requestDelay = options.requestDelay || 500; // Rate limiting
-    }
-
-    /**
-     * Translate a single text from English to Arabic
+        this.requestDelay = options.requestDelay || 1000; // Increased default delay for rate limiting
+        this.maxRetries = options.maxRetries || 3; // Add retry capability
+        this.retryDelay = options.retryDelay || 2000; // Delay between retries
+    }    /**
+     * Translate a single text from English to Arabic with retry logic
      */
     async translateText(text, targetLang = 'ar') {
         if (!text || typeof text !== 'string' || text.trim().length === 0) {
@@ -28,40 +27,61 @@ class TranslationService {
             return text;
         }
 
-        try {
-            const langPair = targetLang === 'ar' ? 'en-ar' : 'ar-en';
-            
-            console.log(`🔄 Translating: "${text.substring(0, 50)}..." (${langPair})`);
+        let lastError;
+        
+        // Retry logic for rate limiting and temporary failures
+        for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
+            try {
+                const langPair = targetLang === 'ar' ? 'en-ar' : 'ar-en';
+                
+                console.log(`🔄 Translating (attempt ${attempt}/${this.maxRetries}): "${text.substring(0, 50)}..." (${langPair})`);
 
-            const response = await axios.post(this.apiUrl, {
-                model: this.model,
-                text: text.trim(),
-                langpair: langPair,
-                preprocessing: this.preprocessing
-            }, {
-                headers: {
-                    'Authorization': `Bearer ${this.apiKey}`,
-                    'Content-Type': 'application/json'
-                },
-                timeout: 30000 // 30 second timeout
-            });
+                const response = await axios.post(this.apiUrl, {
+                    model: this.model,
+                    text: text.trim(),
+                    langpair: langPair,
+                    preprocessing: this.preprocessing
+                }, {
+                    headers: {
+                        'Authorization': `Bearer ${this.apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    timeout: 30000 // 30 second timeout
+                });
 
-            const translatedText = response.data?.text;
-            
-            if (translatedText && translatedText.trim().length > 0) {
-                console.log(`✅ Translation complete: "${translatedText.substring(0, 50)}..."`);
-                return translatedText.trim();
-            } else {
-                console.warn('⚠️ Empty translation response, returning original text');
-                return text;
+                const translatedText = response.data?.text;
+                
+                if (translatedText && translatedText.trim().length > 0) {
+                    console.log(`✅ Translation complete: "${translatedText.substring(0, 50)}..."`);
+                    return translatedText.trim();
+                } else {
+                    console.warn('⚠️ Empty translation response, returning original text');
+                    return text;
+                }
+
+            } catch (error) {
+                lastError = error;
+                const isRateLimit = error.response?.status === 429;
+                const isServerError = error.response?.status >= 500;
+                
+                console.error(`❌ Translation attempt ${attempt} failed for "${text.substring(0, 30)}...":`, error.message);
+                
+                // If it's a rate limit error or server error and we have retries left, wait and retry
+                if ((isRateLimit || isServerError) && attempt < this.maxRetries) {
+                    const waitTime = isRateLimit ? this.retryDelay * attempt : this.retryDelay;
+                    console.log(`⏱️ Rate limit/server error detected. Waiting ${waitTime}ms before retry...`);
+                    await new Promise(resolve => setTimeout(resolve, waitTime));
+                    continue;
+                }
+                
+                // If it's the last attempt or a non-retryable error, break
+                break;
             }
-
-        } catch (error) {
-            console.error(`❌ Translation failed for "${text.substring(0, 30)}...":`, error.message);
-            
-            // Return original text on failure
-            return text;
         }
+        
+        console.error(`❌ Translation failed after ${this.maxRetries} attempts for "${text.substring(0, 30)}...":`, lastError?.message);
+        // Return original text on failure
+        return text;
     }
 
     /**
