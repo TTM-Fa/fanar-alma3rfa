@@ -212,15 +212,14 @@ const MaterialDetailsPage = () => {
       color: "from-purple-500 to-indigo-600",
       disabled: material?.status !== "Ready" && material?.status !== "ready",
       path: `/quiz/${materialId}/list`,
-    },
-    {
+    },    {
       title: "Chat with Material",
       description:
         "Ask questions and get answers about this material through AI chat",
       icon: <Brain className="h-8 w-8 text-white" />,
       color: "from-blue-500 to-cyan-600",
       disabled: material?.status !== "Ready" && material?.status !== "ready",
-      path: `/chat/${materialId}`,
+      path: `/chat/${materialId}/list`,
     },
     {
       title: "View Flashcards",

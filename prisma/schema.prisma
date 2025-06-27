@@ -36,6 +36,7 @@ model Material {
   studySession   StudySession    @relation(fields: [studySessionId], references: [id])
   quizzes        Quiz[]
   summaries      Summary[]
+  chats          Chat[]
 }
 
 model Quiz {
@@ -108,4 +109,24 @@ model AudioLecture {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   material   Material @relation(fields: [materialId], references: [id])
+}
+
+model Chat {
+  id          String        @id @default(cuid())
+  title       String
+  description String?
+  materialId  String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  messages    ChatMessage[]
+  material    Material      @relation(fields: [materialId], references: [id])
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  content   String
+  role      String   // 'user' or 'assistant'
+  chatId    String
+  createdAt DateTime @default(now())
+  chat      Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
 }
