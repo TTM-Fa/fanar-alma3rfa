@@ -30,6 +30,7 @@ export async function GET(request, { params }) {
       type: material.type,
       link: material.link,
       rawContent: material.rawContent, // Include the extracted text
+      topics: material.topics || [], // Include the topics array
       createdAt: material.createdAt,
       updatedAt: material.updatedAt,
       studySessionId: material.studySessionId, // Include the session ID

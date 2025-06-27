@@ -7,7 +7,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Label } from "@/components/ui/label";
 import { NotificationPopup } from "@/components/ui/notification-popup";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
+import { useRouter } from "nextjs-toploader/app";
+
 import {
   File,
   X,
@@ -996,7 +998,7 @@ const UploadMaterialsPage = () => {
             const createdTime = new Date(m.createdAt).getTime();
             const currentTime = new Date().getTime();
             const minutesProcessing = (currentTime - createdTime) / (1000 * 60);
-            return minutesProcessing > 2; // Consider as long-running after 2 minutes
+            return minutesProcessing > 1; // Consider as long-running after 1 minute
           });
 
           if (longRunning.length > 0 && !longRunningProcesses.has(sessionId)) {

@@ -463,6 +463,10 @@ ${text}
         .map((r) => r.short_description || "")
         .filter(Boolean);
 
+      // Filter out irrelevant topics (title pages, table of contents, etc.)
+      const filteredTopics = this.filterRelevantTopics(allTopics);
+      console.log("Filtered topics:", filteredTopics);
+
       const titleDescriptionPrompt = `Based on the following content from a document, generate:
 1. A clear, descriptive title (5-12 words, suitable for a study material)
 2. A comprehensive description (2-3 sentences explaining what this document covers)
@@ -513,7 +517,7 @@ Return your response as JSON:
           rawContent: mergedText,
           title: finalTitle,
           description: finalDescription,
-          topic: finalTitle, // Use the same title as topic for consistency
+          topics: filteredTopics, // Store filtered topics as array
           status: "Ready",
         },
       });
@@ -528,6 +532,57 @@ Return your response as JSON:
       );
       throw error;
     }
+  }
+
+  /**
+   * Filter out irrelevant topics like title pages, table of contents, etc.
+   * @param {Array} topics - Array of topic strings
+   * @returns {Array} - Filtered array of relevant topics
+   */
+  filterRelevantTopics(topics) {
+    const irrelevantKeywords = [
+      "title page",
+      "table of contents",
+      "toc",
+      "contents",
+      "introduction",
+      "preface",
+      "acknowledgments",
+      "bibliography",
+      "references",
+      "index",
+      "appendix",
+      "cover page",
+      "front matter",
+      "back matter",
+      "copyright",
+      "disclaimer",
+      "about the author",
+      "foreword",
+    ];
+
+    const duplicateTracker = new Set();
+
+    return topics
+      .filter((topic) => {
+        if (!topic || topic.trim().length < 3) return false;
+
+        const lowerTopic = topic.toLowerCase().trim();
+
+        // Filter out topics that contain irrelevant keywords
+        const isIrrelevant = irrelevantKeywords.some((keyword) =>
+          lowerTopic.includes(keyword.toLowerCase())
+        );
+
+        if (isIrrelevant) return false;
+
+        // Remove duplicates (case-insensitive)
+        if (duplicateTracker.has(lowerTopic)) return false;
+        duplicateTracker.add(lowerTopic);
+
+        return true;
+      })
+      .slice(0, 10); // Limit to max 10 topics to avoid overwhelming the database
   }
 
   /**
@@ -595,14 +650,14 @@ class AudioProcessor extends FileProcessor {
       await this.updateStatus(materialId, "Converting to text", prisma);
 
       // Transcribe audio and generate description in a single API call
-      const { transcribedText, description } = await this.transcribeWithWhisper(
-        audioBuffer
-      );
+      const { transcribedText, description, topics } =
+        await this.transcribeWithWhisper(audioBuffer);
 
       console.log(
         `Audio transcribed successfully for ${materialId}, length: ${transcribedText.length} chars`
       );
       console.log(`Description generated for ${materialId}: ${description}`);
+      console.log(`Topics extracted for ${materialId}:`, topics);
 
       if (updateProgress) updateProgress(80, "Storing transcription...");
 
@@ -612,6 +667,7 @@ class AudioProcessor extends FileProcessor {
         data: {
           rawContent: transcribedText,
           description: description,
+          topics: topics, // Store extracted topics
           status: "Ready", // Use consistent status naming
         },
       });
@@ -622,6 +678,7 @@ class AudioProcessor extends FileProcessor {
         success: true,
         text: transcribedText,
         description: description,
+        topics: topics,
       };
     } catch (error) {
       console.error(`Audio processing error for ${materialId}:`, error);
@@ -668,35 +725,63 @@ class AudioProcessor extends FileProcessor {
 
       // Generate a description from the transcribed text
       let description = "Audio transcription";
+      let topics = [];
 
       // Only attempt to generate a description if we have enough transcribed text
       if (transcribedText && transcribedText.length > 50) {
         try {
-          // Use GPT to generate a brief description of the audio content
-          const descriptionResponse = await openai.chat.completions.create({
-            model: "gpt-3.5-turbo",
+          // Use GPT to generate a brief description and extract topics
+          const analysisResponse = await openai.chat.completions.create({
+            model: "gpt-4o-mini",
             messages: [
               {
                 role: "system",
-                content:
-                  "Generate a very concise description (maximum 2 sentences) of what this audio transcription is about.",
+                content: `Analyze this audio transcription and return a JSON response with:
+1. A concise description (maximum 2 sentences)
+2. A list of 3-5 main topics/subjects covered
+
+Return only valid JSON in this format:
+{
+  "description": "Brief description of the content",
+  "topics": ["topic1", "topic2", "topic3"]
+}`,
               },
               {
                 role: "user",
-                content: transcribedText.substring(0, 1000), // Use first 1000 chars to generate description
+                content:
+                  transcribedText.length > 2000
+                    ? transcribedText.substring(0, 2000) + "..."
+                    : transcribedText,
               },
             ],
-            max_tokens: 100,
+            max_tokens: 200,
+            temperature: 0.3,
+            response_format: { type: "json_object" },
           });
 
-          description = descriptionResponse.choices[0].message.content.trim();
+          const analysis = JSON.parse(
+            analysisResponse.choices[0].message.content.trim()
+          );
+          description = analysis.description || description;
+          topics = Array.isArray(analysis.topics) ? analysis.topics : [];
+
+          // Filter out any irrelevant topics
+          topics = topics
+            .filter(
+              (topic) =>
+                topic &&
+                topic.trim().length > 2 &&
+                !topic.toLowerCase().includes("transcription") &&
+                !topic.toLowerCase().includes("audio")
+            )
+            .slice(0, 5); // Limit to 5 topics
         } catch (descError) {
-          console.error("Error generating description:", descError);
-          // Fall back to default description
+          console.error("Error generating description and topics:", descError);
+          // Fall back to default values
         }
       }
 
-      return { transcribedText, description };
+      return { transcribedText, description, topics };
     } catch (error) {
       console.error("Error using OpenAI Whisper API:", error);
       throw new Error(
@@ -721,5 +806,173 @@ class DefaultProcessor extends FileProcessor {
       success: false,
       error: "Unsupported file type",
     };
+  }
+}
+
+/**
+ * Filter raw content by selected topics
+ * This function parses the <PAGE-X> formatted content and returns only pages
+ * that match the specified topics
+ *
+ * @param {string} rawContent - The raw content in <PAGE-X> format with metadata
+ * @param {Array<string>} selectedTopics - Array of topics to filter by
+ * @param {boolean} exactMatch - Whether to use exact topic matching (default: false)
+ * @returns {string} - Filtered raw content containing only matching pages
+ */
+export function filterContentByTopics(
+  rawContent,
+  selectedTopics,
+  exactMatch = false
+) {
+  if (!rawContent || !selectedTopics || selectedTopics.length === 0) {
+    return rawContent;
+  }
+
+  try {
+    // Split content into individual pages
+    const pageRegex = /<PAGE-(\d+)>([\s\S]*?)<\/PAGE-\1>/g;
+    const pages = [];
+    let match;
+
+    while ((match = pageRegex.exec(rawContent)) !== null) {
+      const pageNumber = match[1];
+      const pageContent = match[2];
+
+      // Extract topic from metadata
+      const topicMatch = pageContent.match(/<!-- TOPIC: (.*?) -->/);
+      const pageTopic = topicMatch ? topicMatch[1].trim() : "";
+
+      pages.push({
+        pageNumber: parseInt(pageNumber),
+        content: match[0], // Full page content including tags
+        topic: pageTopic,
+        rawContent: pageContent,
+      });
+    }
+
+    console.log(`Found ${pages.length} pages in content`);
+    console.log(`Filtering by topics: ${selectedTopics.join(", ")}`);
+
+    // Filter pages by selected topics
+    const matchingPages = pages.filter((page) => {
+      if (!page.topic) return false;
+
+      const pageTopic = page.topic.toLowerCase().trim();
+
+      return selectedTopics.some((selectedTopic) => {
+        const selected = selectedTopic.toLowerCase().trim();
+
+        if (exactMatch) {
+          return pageTopic === selected;
+        } else {
+          // Check if either topic contains the other (more flexible matching)
+          return pageTopic.includes(selected) || selected.includes(pageTopic);
+        }
+      });
+    });
+
+    console.log(`Found ${matchingPages.length} matching pages`);
+
+    if (matchingPages.length === 0) {
+      return `<!-- No content found for topics: ${selectedTopics.join(
+        ", "
+      )} -->`;
+    }
+
+    // Reconstruct the filtered content
+    const filteredContent = matchingPages
+      .map((page) => page.content)
+      .join("\n\n");
+
+    return filteredContent;
+  } catch (error) {
+    console.error("Error filtering content by topics:", error);
+    return rawContent; // Return original content if filtering fails
+  }
+}
+
+/**
+ * Extract all available topics from raw content
+ * This helper function parses the content and returns all unique topics
+ *
+ * @param {string} rawContent - The raw content in <PAGE-X> format with metadata
+ * @returns {Array<string>} - Array of unique topics found in the content
+ */
+export function extractTopicsFromContent(rawContent) {
+  if (!rawContent) return [];
+
+  try {
+    const topics = new Set();
+    const pageRegex = /<PAGE-(\d+)>([\s\S]*?)<\/PAGE-\1>/g;
+    let match;
+
+    while ((match = pageRegex.exec(rawContent)) !== null) {
+      const pageContent = match[2];
+      const topicMatch = pageContent.match(/<!-- TOPIC: (.*?) -->/);
+
+      if (topicMatch) {
+        const topic = topicMatch[1].trim();
+        if (topic && topic.length > 0) {
+          topics.add(topic);
+        }
+      }
+    }
+
+    return Array.from(topics).sort();
+  } catch (error) {
+    console.error("Error extracting topics from content:", error);
+    return [];
+  }
+}
+
+/**
+ * Get page count and basic statistics from raw content
+ *
+ * @param {string} rawContent - The raw content in <PAGE-X> format
+ * @returns {Object} - Statistics about the content
+ */
+export function getContentStatistics(rawContent) {
+  if (!rawContent) {
+    return { pageCount: 0, topics: [], totalCharacters: 0 };
+  }
+
+  try {
+    const pageRegex = /<PAGE-(\d+)>([\s\S]*?)<\/PAGE-\1>/g;
+    const pages = [];
+    const topics = new Set();
+    let match;
+
+    while ((match = pageRegex.exec(rawContent)) !== null) {
+      const pageNumber = parseInt(match[1]);
+      const pageContent = match[2];
+
+      // Extract topic
+      const topicMatch = pageContent.match(/<!-- TOPIC: (.*?) -->/);
+      if (topicMatch) {
+        const topic = topicMatch[1].trim();
+        if (topic) topics.add(topic);
+      }
+
+      pages.push({
+        pageNumber,
+        characterCount: pageContent.length,
+      });
+    }
+
+    const totalCharacters = pages.reduce(
+      (sum, page) => sum + page.characterCount,
+      0
+    );
+
+    return {
+      pageCount: pages.length,
+      topics: Array.from(topics).sort(),
+      totalCharacters,
+      averageCharactersPerPage:
+        pages.length > 0 ? Math.round(totalCharacters / pages.length) : 0,
+    };
+  } catch (error) {
+    console.error("Error getting content statistics:", error);
+    return { pageCount: 0, topics: [], totalCharacters: 0 };
   }
 }

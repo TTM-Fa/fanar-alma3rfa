@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
+import { useRouter } from "nextjs-toploader/app";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -246,7 +247,7 @@ const MaterialDetailsPage = () => {
       icon: <Code className="h-8 w-8 text-white" />,
       color: "from-blue-500 to-indigo-600",
       disabled: false,
-      path: `/code-mentor/${materialId}`, 
+      path: `/code-mentor/${materialId}`,
     },
     {
       title: "Audio Lectures",
@@ -521,7 +522,7 @@ const MaterialDetailsPage = () => {
                 onClick={() => !action.disabled && router.push(action.path)}
                 disabled={action.disabled}
               >
-                <Card className="w-full h-full">
+                <Card className="w-full h-full relative">
                   <div
                     className={`absolute top-0 left-0 w-full h-full bg-gradient-to-br ${action.color} opacity-0 group-hover:opacity-5 transition-opacity`}
                   />

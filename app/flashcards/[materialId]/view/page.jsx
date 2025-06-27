@@ -6,7 +6,8 @@
 
 
 import React, { useState, useEffect } from "react";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
+import { useRouter } from "nextjs-toploader/app";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -34,6 +35,14 @@ import {
   RotateCw,
   Eye,
 } from "lucide-react";
+
+// Utility function to detect Arabic text
+const isArabicText = (text) => {
+  if (!text) return false;
+  // Check for Arabic Unicode range
+  const arabicRegex = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+  return arabicRegex.test(text);
+};
 
 const FlashcardsPage = () => {
   const params = useParams();
@@ -299,10 +308,14 @@ const FlashcardsPage = () => {
                     <Badge className="bg-white/20 text-white text-xs">
                       Card {currentCardIndex + 1}
                     </Badge>
-                  </div>
-
-                  <div className="flex-1 flex items-center justify-center text-center">
-                    <h2 className="text-2xl md:text-3xl font-bold">
+                  </div>                  <div className="flex-1 flex items-center justify-center text-center">
+                    <h2 
+                      className="text-2xl md:text-3xl font-bold"
+                      style={{ 
+                        direction: isArabicText(currentCard.front) ? 'rtl' : 'ltr',
+                        textAlign: isArabicText(currentCard.front) ? 'right' : 'center'
+                      }}
+                    >
                       {currentCard.front}
                     </h2>
                   </div>
@@ -332,7 +345,13 @@ const FlashcardsPage = () => {
                   </div>                  <div className={`flex-1 flex items-center justify-center ${currentCard.imageUrl ? 'gap-6' : ''}`}>
                     {/* Text content */}
                     <div className={`text-center ${currentCard.imageUrl ? 'flex-1' : 'w-full'}`}>
-                      <div className="text-xl text-gray-800 leading-relaxed">
+                      <div 
+                        className="text-xl text-gray-800 leading-relaxed"
+                        style={{ 
+                          direction: isArabicText(currentCard.back) ? 'rtl' : 'ltr',
+                          textAlign: isArabicText(currentCard.back) ? 'right' : 'center'
+                        }}
+                      >
                         {currentCard.back}
                       </div>
                     </div>
