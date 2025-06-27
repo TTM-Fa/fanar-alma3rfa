@@ -91,6 +91,7 @@ model Summary {
   id         String   @id @default(cuid())
   title      String
   content    String
+  example    String?  // Cultural example content
   materialId String
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
