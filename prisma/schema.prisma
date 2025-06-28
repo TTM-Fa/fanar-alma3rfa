@@ -25,6 +25,7 @@ model Material {
   link           String?
   fileName       String?
   rawContent     String?
+  translatedContent String? // Stores Arabic translation of rawContent
   status         String
   studySessionId String
   createdAt      DateTime        @default(now())
@@ -115,6 +116,7 @@ model Chat {
   id          String        @id @default(cuid())
   title       String
   description String?
+  language    String        @default("en") // 'en' for English, 'ar' for Arabic
   materialId  String
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
@@ -123,10 +125,13 @@ model Chat {
 }
 
 model ChatMessage {
-  id        String   @id @default(cuid())
-  content   String
-  role      String   // 'user' or 'assistant'
-  chatId    String
-  createdAt DateTime @default(now())
-  chat      Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  id          String   @id @default(cuid())
+  content     String
+  role        String   // 'user' or 'assistant'
+  messageType String   @default("text") // 'text' or 'voice'
+  audioUrl    String?  // URL to audio file for voice messages
+  transcription String? // Text transcription of voice messages
+  chatId      String
+  createdAt   DateTime @default(now())
+  chat        Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
 }

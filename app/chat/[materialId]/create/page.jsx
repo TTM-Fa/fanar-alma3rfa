@@ -15,6 +15,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";  
+import {
   ArrowLeft,
   Brain,
   Loader,
@@ -26,10 +33,10 @@ const CreateChatPage = () => {
   const [material, setMaterial] = useState(null);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
-  const [error, setError] = useState(null);
-  const [formData, setFormData] = useState({
+  const [error, setError] = useState(null);  const [formData, setFormData] = useState({
     title: "",
     description: "",
+    language: "en", // Default to English
   });
 
   const params = useParams();
@@ -95,10 +102,10 @@ const CreateChatPage = () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+        },        body: JSON.stringify({
           title: formData.title.trim(),
           description: formData.description.trim() || null,
+          language: formData.language,
         }),
       });
 
@@ -227,9 +234,7 @@ const CreateChatPage = () => {
                 onChange={(e) => handleInputChange("title", e.target.value)}
                 disabled={!isReady}
               />
-            </div>
-
-            <div className="space-y-2">
+            </div>            <div className="space-y-2">
               <Label htmlFor="description">Description (Optional)</Label>
               <Textarea
                 id="description"
@@ -239,6 +244,39 @@ const CreateChatPage = () => {
                 rows={3}
                 disabled={!isReady}
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="language">Chat Language *</Label>
+              <Select
+                value={formData.language}
+                onValueChange={(value) => handleInputChange("language", value)}
+                disabled={!isReady}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select chat language" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="en">
+                    <div className="flex items-center gap-2">
+                      <span>🇺🇸</span>
+                      <span>English</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="ar">
+                    <div className="flex items-center gap-2">
+                      <span>🇸🇦</span>
+                      <span>العربية (Arabic)</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-sm text-gray-500">
+                {formData.language === 'ar' 
+                  ? 'The material content will be translated to Arabic and voice recognition will be set to Arabic.'
+                  : 'Chat will be conducted in English with English voice recognition.'
+                }
+              </p>
             </div>
 
             {error && (

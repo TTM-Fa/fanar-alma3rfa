@@ -39,13 +39,22 @@ class ChatRAGService {
     }
     if (buf) chunks.push(buf.trim());
     return chunks;
-  }
-
-  // Initialize material chunks
-  async initializeMaterial(materialId, rawContent) {
+  }  // Initialize material chunks
+  async initializeMaterial(materialId, contentText, language = 'en') {
     try {
-      // Split content into chunks
-      const textChunks = this.splitText(rawContent, 1000);
+      console.log(`Initializing material ${materialId} for language: ${language}`);
+      
+      // Use language-specific cache key
+      const cacheKey = `${materialId}_${language}`;
+      
+      // Check if already initialized
+      if (this.chunks.has(cacheKey)) {
+        console.log(`Material ${materialId} already initialized for ${language}`);
+        return { success: true, chunkCount: this.chunks.get(cacheKey).length, language };
+      }
+
+      // Split content into chunks (content is already in the correct language)
+      const textChunks = this.splitText(contentText, 1000);
 
       // Embed all chunks
       const embedRes = await embedClient.embeddings.create({
@@ -59,22 +68,28 @@ class ChatRAGService {
         embedding: embedRes.data[i].embedding,
       }));
 
-      this.chunks.set(materialId, chunks);
-      return { success: true, chunkCount: chunks.length };
+      this.chunks.set(cacheKey, chunks);
+      console.log(`Material ${materialId} initialized with ${chunks.length} chunks for language: ${language}`);
+      
+      return { success: true, chunkCount: chunks.length, language };
     } catch (error) {
       console.error('Error initializing material chunks:', error);
       throw error;
     }
   }
-
   // Process a chat question
-  async processQuestion(materialId, question, chatHistory = []) {
+  async processQuestion(materialId, question, chatHistory = [], language = 'en') {
     try {
-      // Get chunks for this material
-      const materialChunks = this.chunks.get(materialId);
+      // Use language-specific cache key
+      const cacheKey = `${materialId}_${language}`;
+      
+      // Get chunks for this material and language
+      const materialChunks = this.chunks.get(cacheKey);
       if (!materialChunks || materialChunks.length === 0) {
-        throw new Error('Material not initialized. Please initialize chunks first.');
+        throw new Error(`Material not initialized for language ${language}. Please initialize chunks first.`);
       }
+
+      console.log(`Processing question in ${language} with ${materialChunks.length} chunks`);
 
       // Embed the question
       const qRes = await embedClient.embeddings.create({
