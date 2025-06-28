@@ -29,6 +29,12 @@ import {
   Loader,
 } from "lucide-react";
 
+// Blue/Navy theme colors
+const NAVY = "#223366";
+const BLUE = "#2563eb";
+const LIGHT_BLUE = "#7eb6ff";
+const BLUE_BG = "#eaf0fa";
+
 // Utility function to detect Arabic text
 const isArabicText = (text) => {
   if (!text) return false;
@@ -238,10 +244,10 @@ const QuizPage = () => {
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white flex flex-col items-center justify-center p-6">
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6">
         <div className="text-center">
-          <Loader className="h-12 w-12 text-indigo-600 animate-spin mx-auto mb-4" />
-          <h2 className="text-xl font-medium text-gray-800">Loading quiz...</h2>
+          <Loader className="h-12 w-12 text-[#2563eb] animate-spin mx-auto mb-4" />
+          <h2 className="text-xl font-medium text-[#223366]">Loading quiz...</h2>
         </div>
       </div>
     );
@@ -250,16 +256,16 @@ const QuizPage = () => {
   // Error state
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white flex flex-col items-center justify-center p-6">
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6">
         <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full text-center">
-          <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-medium text-gray-800 mb-2">
+          <AlertCircle className="h-16 w-16 text-[#2563eb] mx-auto mb-4" />
+          <h2 className="text-xl font-medium text-[#223366] mb-2">
             Error Loading Quiz
           </h2>
-          <p className="text-gray-600 mb-6">{error}</p>
+          <p className="text-[#223366] mb-6">{error}</p>
           <Button
             onClick={() => router.push(`/materials/${materialId}`)}
-            className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white"
+            className="bg-gradient-to-r from-[#7eb6ff] to-[#2563eb] text-white font-bold border border-[#7eb6ff] shadow-lg transition-transform duration-200 hover:-translate-y-1 hover:shadow-2xl hover:from-[#2563eb] hover:to-[#7eb6ff] focus:ring-2 focus:ring-[#2563eb] focus:ring-offset-2"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Material
@@ -272,18 +278,18 @@ const QuizPage = () => {
   // If no quiz found
   if (!quiz) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white flex flex-col items-center justify-center p-6">
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6">
         <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full text-center">
-          <HelpCircle className="h-16 w-16 text-amber-500 mx-auto mb-4" />
-          <h2 className="text-xl font-medium text-gray-800 mb-2">
+          <HelpCircle className="h-16 w-16 text-[#fbbf24] mx-auto mb-4" />
+          <h2 className="text-xl font-medium text-[#223366] mb-2">
             Quiz Not Found
           </h2>
-          <p className="text-gray-600 mb-6">
+          <p className="text-[#223366] mb-6">
             The quiz you're looking for could not be found.
           </p>
           <Button
             onClick={() => router.push(`/materials/${materialId}`)}
-            className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white"
+            className="bg-gradient-to-r from-[#7eb6ff] to-[#2563eb] text-white font-bold border border-[#7eb6ff] shadow-lg transition-transform duration-200 hover:-translate-y-1 hover:shadow-2xl hover:from-[#2563eb] hover:to-[#7eb6ff] focus:ring-2 focus:ring-[#2563eb] focus:ring-offset-2"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Material
@@ -299,13 +305,13 @@ const QuizPage = () => {
   const slideInClasses = "animate-in slide-in-from-right duration-300";
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white flex flex-col p-6 md:p-10">
+    <div className="min-h-screen bg-white flex flex-col p-6 md:p-10">
       <div className="max-w-4xl w-full mx-auto">
         {/* Back button */}
         <Button
           variant="ghost"
           onClick={() => router.push(`/materials/${materialId}`)}
-          className="mb-6 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+          className="mb-6 text-[#223366] hover:text-[#142042] hover:bg-[#eaf0fa]"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Material
@@ -315,27 +321,27 @@ const QuizPage = () => {
         <div className="mb-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
+              <h1 className="text-2xl md:text-3xl font-bold text-[#223366]">
                 {quiz.title}
               </h1>
-              <p className="text-gray-600">{quiz.description}</p>
+              <p className="text-[#223366]">{quiz.description}</p>
             </div>
 
             <div className="flex items-center gap-3">
               {!showResults && timer !== null && (
                 <div
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg ${
-                    timer < 60 ? "bg-red-100" : "bg-blue-50"
+                    timer < 60 ? "bg-red-100" : "bg-[#eaf0fa] border border-[#b3c6e0]"
                   }`}
                 >
                   <Clock
                     className={`h-5 w-5 ${
-                      timer < 60 ? "text-red-500" : "text-blue-500"
+                      timer < 60 ? "text-red-500" : "text-[#2563eb]"
                     }`}
                   />
                   <span
                     className={`font-medium ${
-                      timer < 60 ? "text-red-500" : "text-blue-500"
+                      timer < 60 ? "text-red-500" : "text-[#2563eb]"
                     }`}
                   >
                     {formatTime(timer)}
@@ -343,7 +349,7 @@ const QuizPage = () => {
                 </div>
               )}
 
-              <Badge className="bg-purple-100 text-purple-800 text-sm">
+              <Badge className="bg-[#eaf0fa] text-[#223366] border border-[#b3c6e0] text-sm">
                 Question {currentQuestionIndex + 1} of {quiz.questions.length}
               </Badge>
             </div>
@@ -351,26 +357,26 @@ const QuizPage = () => {
 
           <Progress
             value={((currentQuestionIndex + 1) / quiz.questions.length) * 100}
-            className="h-2 bg-gray-200"
-            indicatorClassName="bg-gradient-to-r from-purple-500 to-indigo-600"
+            className="h-2 bg-[#b3c6e0]"
+            indicatorClassName="bg-gradient-to-r from-[#7eb6ff] to-[#2563eb]"
           />
         </div>
 
         {/* Results view */}
         {showResults ? (
           <div className={`${slideInClasses} space-y-8`}>
-            <Card className="bg-white shadow-md overflow-hidden">
+            <Card className="bg-white shadow-md overflow-hidden border border-[#b3c6e0]">
               <CardContent className="p-8">
                 <div className="text-center mb-6">
-                  <div className="inline-flex items-center justify-center h-24 w-24 rounded-full bg-gradient-to-r from-purple-500 to-indigo-600 mb-4">
+                  <div className="inline-flex items-center justify-center h-24 w-24 rounded-full bg-gradient-to-r from-[#7eb6ff] to-[#2563eb] mb-4">
                     <span className="text-3xl font-bold text-white">
                       {calculateScore()}%
                     </span>
                   </div>
-                  <h2 className="text-2xl font-bold text-gray-800 mb-2">
+                  <h2 className="text-2xl font-bold text-[#223366] mb-2">
                     Quiz Complete!
                   </h2>
-                  <p className="text-gray-600">
+                  <p className="text-[#223366]">
                     You answered{" "}
                     {
                       Object.values(answers).filter(
@@ -387,14 +393,14 @@ const QuizPage = () => {
                       key={question.id}
                       className={`p-4 rounded-lg ${
                         answers[question.id]?.isCorrect
-                          ? "bg-green-50 border border-green-100"
+                          ? "bg-[#eaf0fa] border border-[#7eb6ff]"
                           : "bg-red-50 border border-red-100"
                       }`}
                     >
                       <div className="flex items-start gap-3">
                         <div className="mt-0.5">
                           {answers[question.id]?.isCorrect ? (
-                            <div className="flex items-center justify-center h-6 w-6 rounded-full bg-green-500 text-white">
+                            <div className="flex items-center justify-center h-6 w-6 rounded-full bg-[#2563eb] text-white">
                               <Check className="h-4 w-4" />
                             </div>
                           ) : (
@@ -422,9 +428,9 @@ const QuizPage = () => {
                                   question.correctAnswer === option.id;
 
                                 let optionClass =
-                                  "border border-gray-200 bg-white";
+                                  "border border-[#b3c6e0] bg-white";
                                 if (isSelectedOption && isCorrectOption) {
-                                  optionClass = "border-green-500 bg-green-50";
+                                  optionClass = "border-[#2563eb] bg-[#eaf0fa]";
                                 } else if ( 
                                   isSelectedOption &&
                                   !isCorrectOption
@@ -435,7 +441,7 @@ const QuizPage = () => {
                                   isCorrectOption
                                 ) {
                                   optionClass =
-                                    "border-green-500 border-dashed bg-white";
+                                    "border-[#2563eb] border-dashed bg-white";
                                 }
 
                                 return (
@@ -445,14 +451,14 @@ const QuizPage = () => {
                                   >
                                     <div className={`flex-shrink-0 ${isArabicText(option.text) ? 'ml-3' : 'mr-3'}`}>
                                       {isSelectedOption && isCorrectOption && (
-                                        <CheckCircle className="h-5 w-5 text-green-500" />
+                                        <CheckCircle className="h-5 w-5 text-[#2563eb]" />
                                       )}
                                       {isSelectedOption && !isCorrectOption && (
                                         <X className="h-5 w-5 text-red-500" />
                                       )}
                                       {!isSelectedOption && isCorrectOption && (
-                                        <div className="h-5 w-5 border-2 border-green-500 rounded-full flex items-center justify-center">
-                                          <div className="h-2 w-2 bg-green-500 rounded-full"></div>
+                                        <div className="h-5 w-5 border-2 border-[#2563eb] rounded-full flex items-center justify-center">
+                                          <div className="h-2 w-2 bg-[#2563eb] rounded-full"></div>
                                         </div>
                                       )}                                      {!isSelectedOption &&
                                         !isCorrectOption && (
@@ -483,20 +489,18 @@ const QuizPage = () => {
                                   question.correctAnswer.includes(option.id);
 
                                 let optionClass =
-                                  "border border-gray-200 bg-white";
+                                  "border border-[#b3c6e0] bg-white";
                                 if (isSelectedOption && isCorrectOption) {
-                                  optionClass = "border-green-500 bg-green-50";
+                                  optionClass = "border-[#2563eb] bg-[#eaf0fa]";
                                 } else if (
-                                  isSelectedOption &&
-                                  !isCorrectOption
+                                  isSelectedOption && !isCorrectOption
                                 ) {
                                   optionClass = "border-red-500 bg-red-50";
                                 } else if (
-                                  !isSelectedOption &&
-                                  isCorrectOption
+                                  !isSelectedOption && isCorrectOption
                                 ) {
                                   optionClass =
-                                    "border-green-500 border-dashed bg-white";
+                                    "border-[#2563eb] border-dashed bg-white";
                                 }
 
                                 return (
@@ -506,14 +510,14 @@ const QuizPage = () => {
                                   >
                                     <div className={`flex-shrink-0 ${isArabicText(option.text) ? 'ml-3' : 'mr-3'}`}>
                                       {isSelectedOption && isCorrectOption && (
-                                        <CheckCircle className="h-5 w-5 text-green-500" />
+                                        <CheckCircle className="h-5 w-5 text-[#2563eb]" />
                                       )}
                                       {isSelectedOption && !isCorrectOption && (
                                         <X className="h-5 w-5 text-red-500" />
                                       )}
                                       {!isSelectedOption && isCorrectOption && (
-                                        <div className="h-5 w-5 border-2 border-green-500 rounded-md flex items-center justify-center">
-                                          <Check className="h-3 w-3 text-green-500" />
+                                        <div className="h-5 w-5 border-2 border-[#2563eb] rounded-md flex items-center justify-center">
+                                          <Check className="h-3 w-3 text-[#2563eb]" />
                                         </div>
                                       )}                                      {!isSelectedOption &&
                                         !isCorrectOption && (
@@ -536,10 +540,10 @@ const QuizPage = () => {
                           )}
 
                           {/* Explanation */}                          {question.explanation && (
-                            <div className="mt-4 bg-blue-50 p-3 rounded-md flex">
-                              <Lightbulb className="h-5 w-5 text-blue-500 mr-2 flex-shrink-0 mt-0.5" />
+                            <div className="mt-4 bg-[#eaf0fa] p-3 rounded-md flex">
+                              <Lightbulb className="h-5 w-5 text-[#2563eb] mr-2 flex-shrink-0 mt-0.5" />
                               <p 
-                                className="text-sm text-blue-800"
+                                className="text-sm text-[#223366]"
                                 style={{ 
                                   direction: isArabicText(question.explanation) ? 'rtl' : 'ltr',
                                   textAlign: isArabicText(question.explanation) ? 'right' : 'left'
@@ -559,7 +563,7 @@ const QuizPage = () => {
               <CardFooter className="px-8 pb-8 flex justify-center gap-4">
                 <Button
                   variant="outline"
-                  className={"no-loading"}
+                  className={"no-loading border-[#b3c6e0] text-[#223366]"}
                   onClick={() => {
                     setSelectedOptions({});
                     setCurrentQuestionIndex(0);
@@ -575,7 +579,7 @@ const QuizPage = () => {
                 </Button>
                 <Button
                   onClick={() => router.push(`/materials/${materialId}`)}
-                  className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white"
+                  className="bg-gradient-to-r from-[#7eb6ff] to-[#2563eb] text-white font-bold border border-[#7eb6ff] shadow-lg transition-transform duration-200 hover:-translate-y-1 hover:shadow-2xl hover:from-[#2563eb] hover:to-[#7eb6ff] focus:ring-2 focus:ring-[#2563eb] focus:ring-offset-2"
                 >
                   Back to Material
                 </Button>
@@ -585,7 +589,7 @@ const QuizPage = () => {
         ) : (
           /* Question view */
           <div className={`${slideInClasses}`}>
-            <Card className="bg-white shadow-md overflow-hidden">
+            <Card className="bg-white shadow-md overflow-hidden border border-[#b3c6e0]">
               <CardContent className="p-8">
                 {/* Question */}
                 <div className="mb-6">
@@ -593,10 +597,10 @@ const QuizPage = () => {
                     <Badge
                       className={
                         currentQuestion.type === "multi-select"
-                          ? "bg-indigo-100 text-indigo-800"
+                          ? "bg-[#eaf0fa] text-[#2563eb] border border-[#b3c6e0]"
                           : currentQuestion.type === "true-false"
-                          ? "bg-amber-100 text-amber-800"
-                          : "bg-purple-100 text-purple-800"
+                          ? "bg-[#eaf0fa] text-[#223366] border border-[#b3c6e0]"
+                          : "bg-[#eaf0fa] text-[#223366] border border-[#b3c6e0]"
                       }
                     >
                       {currentQuestion.type === "multi-select"
@@ -633,8 +637,8 @@ const QuizPage = () => {
                           }                          className={`flex items-center p-4 rounded-lg border-2 transition-all cursor-pointer 
                             ${
                               selectedOptions[currentQuestion.id] === option.id
-                                ? "border-purple-500 bg-purple-50"
-                                : "border-gray-200 hover:border-purple-200 hover:bg-purple-50/50"
+                                ? "border-[#2563eb] bg-[#eaf0fa]"
+                                : "border-[#b3c6e0] hover:border-[#7eb6ff] hover:bg-[#eaf0fa]"
                             } ${isArabicText(option.text) ? 'flex-row-reverse' : ''}`}
                         >
                           <div className={`flex-shrink-0 ${isArabicText(option.text) ? 'ml-4' : 'mr-4'}`}>
@@ -643,12 +647,12 @@ const QuizPage = () => {
                                 ${
                                   selectedOptions[currentQuestion.id] ===
                                   option.id
-                                    ? "border-purple-500"
-                                    : "border-gray-300"
+                                    ? "border-[#2563eb]"
+                                    : "border-[#b3c6e0]"
                                 }`}
                             >                              {selectedOptions[currentQuestion.id] ===
                                 option.id && (
-                                <div className="h-3 w-3 rounded-full bg-purple-500"></div>
+                                <div className="h-3 w-3 rounded-full bg-[#2563eb]"></div>
                               )}
                             </div>
                           </div>
@@ -679,8 +683,8 @@ const QuizPage = () => {
                             }                            className={`flex items-center p-4 rounded-lg border-2 transition-all cursor-pointer 
                               ${
                                 isSelected
-                                  ? "border-indigo-500 bg-indigo-50"
-                                  : "border-gray-200 hover:border-indigo-200 hover:bg-indigo-50/50"
+                                  ? "border-[#2563eb] bg-[#eaf0fa]"
+                                  : "border-[#b3c6e0] hover:border-[#7eb6ff] hover:bg-[#eaf0fa]"
                               } ${isArabicText(option.text) ? 'flex-row-reverse' : ''}`}
                           >
                             <div className={`flex-shrink-0 ${isArabicText(option.text) ? 'ml-4' : 'mr-4'}`}>
@@ -688,8 +692,8 @@ const QuizPage = () => {
                                 className={`h-6 w-6 rounded-md border-2 flex items-center justify-center
                                   ${
                                     isSelected
-                                      ? "border-indigo-500 bg-indigo-500"
-                                      : "border-gray-300"
+                                      ? "border-[#2563eb] bg-[#2563eb]"
+                                      : "border-[#b3c6e0]"
                                   }`}
                               >                                {isSelected && (
                                   <Check className="h-4 w-4 text-white" />
@@ -733,10 +737,10 @@ const QuizPage = () => {
                         key={index}
                         className={`h-2 w-2 rounded-full ${
                           index === currentQuestionIndex
-                            ? "bg-purple-500"
+                            ? "bg-[#2563eb]"
                             : isQuestionAnswered(quiz.questions[index].id)
-                            ? "bg-green-500"
-                            : "bg-gray-300"
+                            ? "bg-[#eaf0fa] text-[#2563eb] border border-[#2563eb]"
+                            : "bg-white text-[#223366] border border-[#b3c6e0] hover:bg-[#eaf0fa]"
                         }`}
                       />
                     ))}
@@ -745,7 +749,7 @@ const QuizPage = () => {
                   {currentQuestionIndex < quiz.questions.length - 1 ? (
                     <Button
                       onClick={handleNextQuestion}
-                      className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white no-loading"
+                      className="bg-gradient-to-r from-[#7eb6ff] to-[#2563eb] text-white no-loading"
                     >
                       Next
                       <ChevronRight className="ml-2 h-4 w-4" />
@@ -753,7 +757,7 @@ const QuizPage = () => {
                   ) : (
                     <Button
                       onClick={handleSubmitQuiz}
-                      className={`bg-gradient-to-r from-purple-600 to-indigo-600 text-white transition-all no-loading ${
+                      className={`bg-gradient-to-r from-[#7eb6ff] to-[#2563eb] text-white transition-all no-loading ${
                         !allQuestionsAnswered() ? "opacity-80" : ""
                       }`}
                     >
@@ -767,7 +771,7 @@ const QuizPage = () => {
 
             {/* Question counter */}
             <div className="flex justify-center mt-6">
-              <div className="flex items-center bg-white rounded-full px-3 py-1 shadow-sm border">
+              <div className="flex items-center bg-[#eaf0fa] rounded-full px-3 py-1 shadow-sm border border-[#b3c6e0]">
                 {quiz.questions.map((question, index) => (
                   <div
                     key={index}
@@ -776,10 +780,10 @@ const QuizPage = () => {
                       w-8 h-8 flex items-center justify-center rounded-full cursor-pointer mx-1
                       ${
                         currentQuestionIndex === index
-                          ? "bg-purple-600 text-white"
+                          ? "bg-[#2563eb] text-white"
                           : isQuestionAnswered(question.id)
-                          ? "bg-green-100 text-green-800"
-                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                          ? "bg-[#eaf0fa] text-[#2563eb] border border-[#2563eb]"
+                          : "bg-white text-[#223366] border border-[#b3c6e0] hover:bg-[#eaf0fa]"
                       }
                     `}
                   >

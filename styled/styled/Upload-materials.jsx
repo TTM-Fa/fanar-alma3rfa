@@ -699,12 +699,10 @@ const ExistingMaterialsSection = ({
   if (isLoadingMaterials) {
     return (
       <Card className="bg-[#223366] shadow-lg border rounded-lg overflow-hidden transition mt-6">
-      <CardContent className="p-6">
-        <div className="bg-white rounded-lg p-6 text-center">
-        <Loader className="h-8 w-8 text-gray-600 mx-auto mb-4 animate-spin" />
-        <p className="text-gray-700">Loading existing materials...</p>
-        </div>
-      </CardContent>
+        <CardContent className="p-6 text-center">
+          <Loader className="h-8 w-8 text-gray-600 mx-auto mb-4 animate-spin" />
+          <p className="text-gray-700">Loading existing materials...</p>
+        </CardContent>
       </Card>
     );
   }

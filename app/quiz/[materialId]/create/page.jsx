@@ -160,10 +160,10 @@ const QuizCreationPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white flex flex-col items-center justify-center p-6">
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6">
         <div className="text-center">
-          <Loader className="h-12 w-12 text-indigo-600 animate-spin mx-auto mb-4" />
-          <h2 className="text-xl font-medium text-gray-800">
+          <Loader className="h-12 w-12 text-[#2563eb] animate-spin mx-auto mb-4" />
+          <h2 className="text-xl font-medium text-[#223366]">
             Loading material details...
           </h2>
         </div>
@@ -173,18 +173,18 @@ const QuizCreationPage = () => {
 
   if (error || !material) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white flex flex-col items-center justify-center p-6">
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6">
         <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full text-center">
-          <div className="text-red-500 text-5xl mb-4">!</div>
-          <h2 className="text-xl font-medium text-gray-800 mb-2">
+          <div className="text-[#2563eb] text-5xl mb-4">!</div>
+          <h2 className="text-xl font-medium text-[#223366] mb-2">
             Error Loading Material
           </h2>
-          <p className="text-gray-600 mb-6">
+          <p className="text-[#223366] mb-6">
             {error || "The requested material could not be found"}
           </p>
           <Button
             onClick={() => router.back()}
-            className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white"
+            className="bg-gradient-to-r from-[#7eb6ff] to-[#2563eb] text-white font-bold border border-[#7eb6ff] shadow-lg transition-transform duration-200 hover:-translate-y-1 hover:shadow-2xl hover:from-[#2563eb] hover:to-[#7eb6ff] focus:ring-2 focus:ring-[#2563eb] focus:ring-offset-2"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Go Back
@@ -196,25 +196,25 @@ const QuizCreationPage = () => {
 
   if (material.status !== "Ready" && material.status !== "ready") {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white flex flex-col p-6 md:p-10">
+      <div className="min-h-screen bg-white flex flex-col p-6 md:p-10">
         <div className="max-w-4xl w-full mx-auto">
           <Button
             variant="ghost"
             onClick={() => router.back()}
-            className="mb-6 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+            className="mb-6 text-[#223366] hover:text-[#142042] hover:bg-[#eaf0fa]"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back
           </Button>
 
-          <div className="bg-white rounded-xl shadow-md overflow-hidden p-8 text-center">
-            <AlertTriangle className="h-16 w-16 text-amber-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">
+          <div className="bg-white rounded-xl shadow-md overflow-hidden p-8 text-center border border-[#b3c6e0]">
+            <AlertTriangle className="h-16 w-16 text-[#fbbf24] mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-[#223366] mb-4">
               Material Not Ready
             </h2>
-            <p className="text-gray-600 mb-6 max-w-md mx-auto">
+            <p className="text-[#223366] mb-6 max-w-md mx-auto">
               This material is still being processed. Quiz generation requires
-              fully processed materials. Current status:{" "}
+              fully processed materials. Current status: {" "}
               <span className="font-medium">{material.status}</span>
             </p>
             <div className="max-w-md mx-auto mb-8">
@@ -230,15 +230,16 @@ const QuizCreationPage = () => {
                     ? 95
                     : 50
                 }
-                className="h-2 mb-2"
+                className="h-2 mb-2 bg-[#b3c6e0]"
+                indicatorClassName="bg-gradient-to-r from-[#7eb6ff] to-[#2563eb]"
               />
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-[#223366]/70">
                 Please check back later when processing is complete
               </p>
             </div>
             <Button
               onClick={() => router.push(`/materials/${materialId}`)}
-              className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white"
+              className="bg-gradient-to-r from-[#7eb6ff] to-[#2563eb] text-white font-bold border border-[#7eb6ff] shadow-lg transition-transform duration-200 hover:-translate-y-1 hover:shadow-2xl hover:from-[#2563eb] hover:to-[#7eb6ff] focus:ring-2 focus:ring-[#2563eb] focus:ring-offset-2"
             >
               Return to Material Details
             </Button>
@@ -249,13 +250,13 @@ const QuizCreationPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white flex flex-col p-6 md:p-10">
+    <div className="min-h-screen bg-white flex flex-col p-6 md:p-10">
       <div className="max-w-4xl w-full mx-auto">
         {/* Back button */}
         <Button
           variant="ghost"
           onClick={() => router.push(`/materials/${materialId}`)}
-          className="mb-6 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+          className="mb-6 text-[#223366] hover:text-[#142042] hover:bg-[#eaf0fa]"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Material
@@ -263,10 +264,10 @@ const QuizCreationPage = () => {
 
         {/* Page header */}
         <div className="mb-8 text-center">
-          <h1 className="text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-indigo-600 mb-4">
+          <h1 className="text-3xl md:text-4xl font-bold text-[#223366] mb-4">
             Create Quiz
           </h1>
-          <p className="text-gray-600 max-w-2xl mx-auto">
+          <p className="text-[#223366] max-w-2xl mx-auto">
             Generate a customized quiz based on "
             {material?.title || "this material"}" to test your knowledge and
             enhance learning retention.
@@ -277,38 +278,38 @@ const QuizCreationPage = () => {
           {/* Left Column - Main Content */}
           <div className="lg:col-span-2 space-y-6">
             {/* Material Info - Now at the top */}
-            <Card className="bg-white shadow-md">
+            <Card className="bg-[#eaf0fa] shadow-md border border-[#b3c6e0]">
               <CardHeader>
                 <CardTitle className="flex items-center">
-                  <FileText className="h-5 w-5 mr-2 text-indigo-600" />
+                  <FileText className="h-5 w-5 mr-2 text-[#2563eb]" />
                   Material Info
                 </CardTitle>
-                <CardDescription>Source material details</CardDescription>
+                <CardDescription className="text-[#223366]">Source material details</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-start gap-4">
                   <div className="flex-shrink-0">
                     {material.type?.includes("pdf") ||
                     material.fileName?.endsWith(".pdf") ? (
-                      <FileText className="h-12 w-12 text-blue-600" />
+                      <FileText className="h-12 w-12 text-[#2563eb]" />
                     ) : material.type?.includes("audio") ? (
-                      <FileAudio className="h-12 w-12 text-emerald-600" />
+                      <FileAudio className="h-12 w-12 text-[#2563eb]" />
                     ) : material.type?.includes("video") ? (
-                      <FileVideo className="h-12 w-12 text-purple-600" />
+                      <FileVideo className="h-12 w-12 text-[#2563eb]" />
                     ) : material.link?.includes("youtube") ? (
-                      <Youtube className="h-12 w-12 text-red-600" />
+                      <Youtube className="h-12 w-12 text-[#2563eb]" />
                     ) : (
-                      <File className="h-12 w-12 text-gray-600" />
+                      <File className="h-12 w-12 text-[#223366]" />
                     )}
                   </div>
                   <div className="flex-grow">
                     <h3
-                      className="text-lg font-medium text-gray-800 line-clamp-2"
+                      className="text-lg font-medium text-[#223366] line-clamp-2"
                       title={material.title}
                     >
                       {material.title || "Untitled Material"}
                     </h3>
-                    <Badge className="mt-1 bg-green-100 text-green-800">
+                    <Badge className="mt-1 bg-[#eaf0fa] text-[#2563eb] border border-[#b3c6e0]">
                       Ready for Quiz
                     </Badge>
 
@@ -348,7 +349,7 @@ const QuizCreationPage = () => {
             <Card className="bg-white shadow-md">
               <CardHeader>
                 <CardTitle className="flex items-center">
-                  <Settings className="h-5 w-5 mr-2 text-indigo-600" />
+                  <Settings className="h-5 w-5 mr-2 text-[#2563eb]" />
                   Quiz Parameters
                 </CardTitle>
                 <CardDescription>Customize your quiz settings</CardDescription>
@@ -386,7 +387,7 @@ const QuizCreationPage = () => {
                         size="sm"
                         className={
                           quizParams.numQuestions === value
-                            ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white no-loading"
+                            ? "bg-gradient-to-r from-[#7eb6ff] to-[#2563eb] text-white no-loading"
                             : "border-gray-200 no-loading"
                         }
                         onClick={() =>
@@ -421,7 +422,7 @@ const QuizCreationPage = () => {
                         size="sm"
                         className={
                           quizParams.difficulty === diff.value
-                            ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white no-loading"
+                            ? "bg-gradient-to-r from-[#7eb6ff] to-[#2563eb] text-white no-loading"
                             : "border-gray-200 no-loading"
                         }
                         onClick={() =>
@@ -471,7 +472,7 @@ const QuizCreationPage = () => {
                         size="sm"
                         className={
                           quizParams.questionType === type.value
-                            ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white no-loading"
+                            ? "bg-gradient-to-r from-[#7eb6ff] to-[#2563eb] text-white no-loading"
                             : "border-gray-200 no-loading"
                         }
                         onClick={() =>
@@ -501,7 +502,7 @@ const QuizCreationPage = () => {
                         size="sm"
                         className={
                           quizParams.timeLimit === value
-                            ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white no-loading"
+                            ? "bg-gradient-to-r from-[#7eb6ff] to-[#2563eb] text-white no-loading"
                             : "border-gray-200 no-loading"
                         }
                         onClick={() =>
@@ -517,22 +518,22 @@ const QuizCreationPage = () => {
                 {material?.topics && material.topics.length > 0 && (
                   <div className="space-y-2">
                     <Label className="text-sm text-gray-700 flex items-center">
-                      <Tag className="h-4 w-4 mr-2 text-purple-600" />
+                      <Tag className="h-4 w-4 mr-2 text-[#2563eb]" />
                       Filter by Topics (Optional)
                     </Label>
-                    <p className="text-xs text-gray-500 mb-3">
+                    <p className="text-xs text-[#223366] mb-3">
                       Select specific topics to focus on. Leave empty to include
                       all topics.
                     </p>
                     <div className="space-y-2">
                       {/* Selected Topics Display */}
                       {quizParams.selectedTopics.length > 0 && (
-                        <div className="flex flex-wrap gap-2 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                        <div className="flex flex-wrap gap-2 p-3 bg-[#eaf0fa] border border-[#b3c6e0] rounded-lg">
                           {quizParams.selectedTopics.map(
                             (topic, index) => (
                               <span
                                 key={index}
-                                className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800"
+                                className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-[#eaf0fa] text-[#2563eb] border border-[#b3c6e0]"
                               >
                                 {topic}
                                 <button
@@ -547,7 +548,7 @@ const QuizCreationPage = () => {
                                       newSelectedTopics
                                     );
                                   }}
-                                  className="ml-1 text-purple-600 hover:text-purple-800"
+                                  className="ml-1 text-[#2563eb] hover:text-[#142042]"
                                 >
                                   <X className="h-3 w-3" />
                                 </button>
@@ -559,7 +560,7 @@ const QuizCreationPage = () => {
                             onClick={() =>
                               handleQuizParamChange("selectedTopics", [])
                             }
-                            className="text-xs text-purple-600 hover:text-purple-800 underline"
+                            className="text-xs text-[#2563eb] hover:text-[#142042] underline"
                           >
                             Clear all
                           </button>
@@ -589,9 +590,9 @@ const QuizCreationPage = () => {
                                   newSelectedTopics
                                 );
                               }}
-                              className="h-4 w-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                              className="h-4 w-4 text-[#2563eb] border-gray-300 rounded focus:ring-[#2563eb]"
                             />
-                            <span className="text-sm text-gray-700 flex-1">
+                            <span className="text-sm text-[#223366] flex-1">
                               {topic}
                             </span>
                           </label>
@@ -641,31 +642,31 @@ const QuizCreationPage = () => {
                           e.target.checked
                         )
                       }
-                      className="h-4 w-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+                      className="h-4 w-4 text-[#2563eb] border-gray-300 rounded focus:ring-[#2563eb]"
                     />
                     <Label
                       htmlFor="translate-to-arabic-quiz"
-                      className="text-sm font-medium text-gray-700 cursor-pointer flex items-center"
+                      className="text-sm font-medium text-[#223366] cursor-pointer flex items-center"
                     >
                       <span className="ml-1">
                         🌐 Translate quiz content to Arabic
                       </span>
                     </Label>
                   </div>
-                  <p className="text-xs text-gray-500 ml-6">
+                  <p className="text-xs text-[#223366] ml-6">
                     Generate quiz questions in Arabic to help non-English speakers
                     understand the material better. Original English text will
                     be preserved for reference.
                   </p>
                   {quizParams.translateToArabic && (
-                    <div className="ml-6 mt-2 p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+                    <div className="ml-6 mt-2 p-3 bg-[#e0f7fa] border border-[#b2ebf2] rounded-lg">
                       <div className="flex items-start space-x-2">
-                        <div className="text-emerald-600 text-lg">🇸🇦</div>
+                        <div className="text-[#00796b] text-lg">🇸🇦</div>
                         <div>
-                          <p className="text-sm font-medium text-emerald-800">
+                          <p className="text-sm font-medium text-[#00796b]">
                             Arabic Translation Enabled
                           </p>
-                          <p className="text-xs text-emerald-600 mt-1">
+                          <p className="text-xs text-[#004d40] mt-1">
                             Quiz questions will be translated to Arabic using Fanar's
                             AI translation service. This will add some extra processing time.
                           </p>
@@ -688,7 +689,7 @@ const QuizCreationPage = () => {
               <CardFooter className="flex justify-end border-t pt-6">
                 {generatedQuizId ? (
                   <Button
-                    className="bg-gradient-to-r from-green-600 to-emerald-600 text-white"
+                    className="bg-gradient-to-r from-[#7eb6ff] to-[#2563eb] text-white font-bold border border-[#7eb6ff] shadow-lg transition-transform duration-200 hover:-translate-y-1 hover:shadow-2xl hover:from-[#2563eb] hover:to-[#7eb6ff] focus:ring-2 focus:ring-[#2563eb] focus:ring-offset-2"
                     onClick={handleViewQuiz}
                   >
                     <CheckCircle className="mr-2 h-4 w-4" />
@@ -696,7 +697,7 @@ const QuizCreationPage = () => {
                   </Button>
                 ) : (
                   <Button
-                    className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white no-loading"
+                    className="bg-gradient-to-r from-[#7eb6ff] to-[#2563eb] text-white font-bold border border-[#7eb6ff] shadow-lg transition-transform duration-200 hover:-translate-y-1 hover:shadow-2xl hover:from-[#2563eb] hover:to-[#7eb6ff] focus:ring-2 focus:ring-[#2563eb] focus:ring-offset-2"
                     onClick={handleGenerateQuiz}
                     disabled={generating}
                   >
@@ -720,15 +721,15 @@ const QuizCreationPage = () => {
           {/* Right Column - Sidebar */}
           <div className="lg:col-span-1 space-y-6">
             {/* About Quizzes information card */}
-            <Card className="bg-white shadow-sm border border-indigo-100">
+            <Card className="bg-[#eaf0fa] shadow-sm border border-[#b3c6e0]">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base flex items-center">
-                  <Brain className="h-4 w-4 mr-2 text-indigo-600" />
+                  <Brain className="h-4 w-4 mr-2 text-[#2563eb]" />
                   About Quizzes
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-[#223366]">
                   This quiz will be generated based on the content of the
                   material. The AI will analyze the text and create relevant
                   questions to test your knowledge.
@@ -738,14 +739,14 @@ const QuizCreationPage = () => {
 
             {/* Generation info card - Now on the right */}
             {generating && (
-              <Card className="bg-blue-50 border-blue-100 shadow-sm">
+              <Card className="bg-[#eaf0fa] border-[#b3c6e0] shadow-sm">
                 <CardContent className="p-6">
                   <div className="flex flex-col items-center text-center">
-                    <Loader className="h-12 w-12 text-blue-600 animate-spin mb-4" />
-                    <h3 className="text-lg font-medium text-blue-800 mb-2">
+                    <Loader className="h-12 w-12 text-[#2563eb] animate-spin mb-4" />
+                    <h3 className="text-lg font-medium text-[#223366] mb-2">
                       Generating Your Quiz
                     </h3>
-                    <p className="text-sm text-blue-600">
+                    <p className="text-sm text-[#2563eb]">
                       Our AI is analyzing the material and creating meaningful
                       questions. This may take a minute or two.
                     </p>
@@ -755,15 +756,15 @@ const QuizCreationPage = () => {
             )}
 
             {/* Tips card - Now on the right */}
-            <Card className="bg-gradient-to-br from-indigo-50 to-purple-50 border-none shadow-sm">
+            <Card className="bg-gradient-to-br from-[#eaf0fa] to-[#b3c6e0] border-none shadow-sm">
               <CardContent className="p-4">
                 <div className="flex items-start">
-                  <HelpCircle className="h-5 w-5 text-indigo-600 mr-2 mt-0.5" />
+                  <HelpCircle className="h-5 w-5 text-[#2563eb] mr-2 mt-0.5" />
                   <div>
-                    <h4 className="text-sm font-medium text-gray-800 mb-1">
+                    <h4 className="text-sm font-medium text-[#223366] mb-1">
                       Tips for Better Quizzes
                     </h4>
-                    <ul className="text-xs text-gray-600 space-y-1 list-disc pl-4">
+                    <ul className="text-xs text-[#223366] space-y-1 list-disc pl-4">
                       <li>Choose fewer questions for quick reviews</li>
                       <li>Mix question types for comprehensive learning</li>
                       <li>Start with medium difficulty and adjust as needed</li>

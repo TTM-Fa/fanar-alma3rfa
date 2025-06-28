@@ -30,6 +30,11 @@ import {
   ListChecks,
 } from "lucide-react";
 
+const BLUE_BG = "#eaf0fa";
+const NAVY = "#223366";
+const BLUE = "#2563eb";
+const LIGHT_BLUE = "#7eb6ff";
+
 const QuizListPage = () => {
   const [material, setMaterial] = useState(null);
   const [quizzes, setQuizzes] = useState([]);
@@ -112,11 +117,11 @@ const QuizListPage = () => {
 
   const getDifficultyBadgeColor = (difficulty) => {
     const difficultyColors = {
-      easy: "bg-green-100 text-green-800",
-      medium: "bg-amber-100 text-amber-800",
-      hard: "bg-red-100 text-red-800",
+      easy: `bg-[#dbeafe] text-[#2563eb] border border-[#b3c6e0]`,
+      medium: `bg-[#e0e7ff] text-[#223366] border border-[#b3c6e0]`,
+      hard: `bg-[#c7d2fe] text-[#142042] border border-[#b3c6e0]`,
     };
-    return difficultyColors[difficulty] || "bg-gray-100 text-gray-800";
+    return difficultyColors[difficulty] || `bg-[#eaf0fa] text-[#223366] border border-[#b3c6e0]`;
   };
 
   const getQuestionTypeIcon = (type) => {
@@ -134,10 +139,10 @@ const QuizListPage = () => {
 
   if (loading || materialLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white flex flex-col items-center justify-center p-6">
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6">
         <div className="text-center">
-          <Loader className="h-12 w-12 text-indigo-600 animate-spin mx-auto mb-4" />
-          <h2 className="text-xl font-medium text-gray-800">
+          <Loader className="h-12 w-12 text-[#2563eb] animate-spin mx-auto mb-4" />
+          <h2 className="text-xl font-medium text-[#223366]">
             Loading quizzes...
           </h2>
         </div>
@@ -147,16 +152,16 @@ const QuizListPage = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white flex flex-col items-center justify-center p-6">
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6">
         <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full text-center">
-          <div className="text-red-500 text-5xl mb-4">!</div>
-          <h2 className="text-xl font-medium text-gray-800 mb-2">
+          <div className="text-[#2563eb] text-5xl mb-4">!</div>
+          <h2 className="text-xl font-medium text-[#223366] mb-2">
             Error Loading Data
           </h2>
-          <p className="text-gray-600 mb-6">{error}</p>
+          <p className="text-[#223366] mb-6">{error}</p>
           <Button
             onClick={() => router.back()}
-            className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white"
+            className="bg-gradient-to-r from-[#7eb6ff] to-[#2563eb] text-white font-bold border border-[#7eb6ff] shadow-lg transition-transform duration-200 hover:-translate-y-1 hover:shadow-2xl hover:from-[#2563eb] hover:to-[#7eb6ff] focus:ring-2 focus:ring-[#2563eb] focus:ring-offset-2"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Go Back
@@ -168,18 +173,18 @@ const QuizListPage = () => {
 
   if (!material) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white flex flex-col items-center justify-center p-6">
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6">
         <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full text-center">
-          <div className="text-amber-500 text-5xl mb-4">?</div>
-          <h2 className="text-xl font-medium text-gray-800 mb-2">
+          <div className="text-[#fbbf24] text-5xl mb-4">?</div>
+          <h2 className="text-xl font-medium text-[#223366] mb-2">
             Material Not Found
           </h2>
-          <p className="text-gray-600 mb-6">
+          <p className="text-[#223366] mb-6">
             The requested material could not be found or may have been deleted.
           </p>
           <Button
             onClick={() => router.back()}
-            className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white"
+            className="bg-gradient-to-r from-[#7eb6ff] to-[#2563eb] text-white font-bold border border-[#7eb6ff] shadow-lg transition-transform duration-200 hover:-translate-y-1 hover:shadow-2xl hover:from-[#2563eb] hover:to-[#7eb6ff] focus:ring-2 focus:ring-[#2563eb] focus:ring-offset-2"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Go Back
@@ -190,13 +195,13 @@ const QuizListPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white flex flex-col p-6 md:p-10">
+    <div className="min-h-screen bg-white flex flex-col p-6 md:p-10">
       <div className="max-w-6xl w-full mx-auto">
         {/* Back button */}
         <Button
           variant="ghost"
           onClick={() => router.push(`/materials/${materialId}`)}
-          className="mb-6 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+          className="mb-6 text-[#223366] hover:text-[#142042] hover:bg-[#eaf0fa]"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Material
@@ -204,10 +209,10 @@ const QuizListPage = () => {
 
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">
+          <h1 className="text-3xl font-bold text-[#223366] mb-2">
             Quizzes for {material.title || "Material"}
           </h1>
-          <p className="text-gray-600">
+          <p className="text-[#223366]">
             View all quizzes created for this study material
           </p>
         </div>
@@ -216,7 +221,7 @@ const QuizListPage = () => {
         <div className="mb-8">
           <Button
             onClick={() => router.push(`/quiz/${materialId}/create`)}
-            className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white"
+            className="bg-gradient-to-r from-[#7eb6ff] to-[#2563eb] text-white font-bold border border-[#7eb6ff] shadow-lg transition-transform duration-200 hover:-translate-y-1 hover:shadow-2xl hover:from-[#2563eb] hover:to-[#7eb6ff] focus:ring-2 focus:ring-[#2563eb] focus:ring-offset-2"
           >
             <PlusCircle className="mr-2 h-4 w-4" />
             Create New Quiz
@@ -226,22 +231,22 @@ const QuizListPage = () => {
         {/* Quiz list */}
         <div className="space-y-6">
           {quizzes.length === 0 ? (
-            <Card className="bg-white shadow-md">
+            <Card className="bg-[#eaf0fa] shadow-md border border-[#b3c6e0]">
               <CardContent className="p-6 text-center">
                 <div className="flex flex-col items-center py-8">
-                  <div className="bg-purple-100 p-3 rounded-full mb-4">
-                    <Brain className="h-8 w-8 text-purple-600" />
+                  <div className="bg-[#b3c6e0] p-3 rounded-full mb-4">
+                    <Brain className="h-8 w-8 text-[#2563eb]" />
                   </div>
-                  <h3 className="text-xl font-medium text-gray-800 mb-2">
+                  <h3 className="text-xl font-medium text-[#223366] mb-2">
                     No Quizzes Created Yet
                   </h3>
-                  <p className="text-gray-600 mb-6 max-w-md">
+                  <p className="text-[#223366] mb-6 max-w-md">
                     Create your first quiz to test your knowledge of this
                     material!
                   </p>
                   <Button
                     onClick={() => router.push(`/quiz/${materialId}/create`)}
-                    className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white"
+                    className="bg-gradient-to-r from-[#7eb6ff] to-[#2563eb] text-white font-bold border border-[#7eb6ff] shadow-lg transition-transform duration-200 hover:-translate-y-1 hover:shadow-2xl hover:from-[#2563eb] hover:to-[#7eb6ff] focus:ring-2 focus:ring-[#2563eb] focus:ring-offset-2"
                   >
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Create First Quiz
@@ -253,7 +258,7 @@ const QuizListPage = () => {
             quizzes.map((quiz) => (
               <Card
                 key={quiz.id}
-                className="transition-all hover:shadow-lg cursor-pointer bg-white"
+                className="transition-all hover:shadow-xl cursor-pointer bg-white border border-[#b3c6e0]"
                 onClick={() =>
                   router.push(`/quiz/${materialId}/view/?quizId=${quiz.id}`)
                 }
@@ -261,11 +266,11 @@ const QuizListPage = () => {
                 <CardContent className="p-6">
                   <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                     <div className="flex items-center gap-4">
-                      <div className="p-3 bg-purple-100 rounded-full">
-                        <Brain className="h-6 w-6 text-purple-600" />
+                      <div className="p-3 bg-[#eaf0fa] rounded-full border border-[#b3c6e0]">
+                        <Brain className="h-6 w-6 text-[#2563eb]" />
                       </div>
                       <div>
-                        <h3 className="text-lg font-semibold text-gray-800">
+                        <h3 className="text-lg font-semibold text-[#223366]">
                           {quiz.title || "Untitled Quiz"}
                         </h3>
                         <div className="flex flex-wrap gap-2 mt-1">
@@ -277,7 +282,7 @@ const QuizListPage = () => {
                           </Badge>
                           <Badge
                             variant="outline"
-                            className="flex items-center gap-1"
+                            className="flex items-center gap-1 border-[#b3c6e0] text-[#223366]"
                           >
                             {getQuestionTypeIcon(quiz.questionType)}
                             {quiz.questionType === "multiple-choice"
@@ -290,7 +295,7 @@ const QuizListPage = () => {
                           </Badge>
                           <Badge
                             variant="outline"
-                            className="flex items-center gap-1"
+                            className="flex items-center gap-1 border-[#b3c6e0] text-[#223366]"
                           >
                             <ListChecks className="h-3 w-3" />
                             {quiz._count.questions || 0} questions
@@ -299,7 +304,7 @@ const QuizListPage = () => {
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
-                      <div className="text-sm text-gray-600 hidden md:block">
+                      <div className="text-sm text-[#223366] hidden md:block">
                         <div className="flex items-center">
                           <Clock className="h-3.5 w-3.5 mr-1" />
                           Created {formatDate(quiz.createdAt)}
@@ -308,7 +313,7 @@ const QuizListPage = () => {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="rounded-full"
+                        className="rounded-full text-[#2563eb] hover:bg-[#eaf0fa]"
                       >
                         <ChevronRight className="h-5 w-5" />
                       </Button>

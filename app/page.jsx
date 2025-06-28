@@ -111,38 +111,40 @@ const LandingPage = () => {
         {/* Main content */}
         <div className="max-w-4xl mx-auto">
           {/* Action cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-16">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
             {/* New session card */}
             <div
-              className="relative group"
+              className="relative group h-full"
               onMouseEnter={() => setIsHoveringNew(true)}
               onMouseLeave={() => setIsHoveringNew(false)}
             >
-              <Card className="h-64 bg-white/80 backdrop-blur border-2 border-blue-100 rounded-2xl overflow-hidden transition-all duration-500 shadow-lg hover:shadow-xl hover:border-blue-300 hover:scale-[1.02]">
+              <Card className="h-[320px] bg-white/80 backdrop-blur border-2 border-blue-100 rounded-2xl overflow-hidden transition-all duration-500 shadow-lg hover:shadow-xl hover:border-blue-300 hover:scale-[1.02]">
                 <CardContent className="p-0 h-full">
-                  <div className="h-full flex flex-col justify-between p-6">
-                    <div>
+                  <div className="flex flex-col h-full p-6">
+                    <div className="flex-grow">
                       <div className="mb-4 p-3 bg-blue-100 rounded-full w-14 h-14 flex items-center justify-center">
                         <Plus className="h-8 w-8 text-blue-700" />
                       </div>
-                      <h2 className="text-2xl font-bold text-gray-800 mb-2">
+                      <h2 className="text-2xl font-bold text-gray-800 mb-3">
                         Create New Session
                       </h2>
-                      <p className="text-gray-600">
-                        Start a new study session with your materials.
+                      <p className="text-gray-600 leading-relaxed">
+                        Start a new study session with your materials and let AI organize everything.
                       </p>
                     </div>
-                    <Button
-                      className="mt-4 text-white bg-gradient-to-r from-blue-600 to-slate-700 hover:from-blue-700 hover:to-slate-800 group-hover:scale-105 transition-all duration-300 flex items-center justify-center no-loading"
-                      onClick={() => setIsCreateModalOpen(true)}
-                    >
-                      Get Started
-                      <ChevronRight
-                        className={`ml-2 h-5 w-5 transition-transform duration-300 ${
-                          isHoveringNew ? "transform translate-x-1" : ""
-                        }`}
-                      />
-                    </Button>
+                    <div className="mt-6">
+                      <Button
+                        className="w-full text-white bg-gradient-to-r from-blue-600 to-slate-700 hover:from-blue-700 hover:to-slate-800 group-hover:scale-105 transition-all duration-300 flex items-center justify-center no-loading"
+                        onClick={() => setIsCreateModalOpen(true)}
+                      >
+                        Get Started
+                        <ChevronRight
+                          className={`ml-2 h-5 w-5 transition-transform duration-300 ${
+                            isHoveringNew ? "transform translate-x-1" : ""
+                          }`}
+                        />
+                      </Button>
+                    </div>
                   </div>
                   {/* Background decoration */}
                   <div className="absolute top-0 right-0 h-full w-1/3 bg-gradient-to-l from-blue-100/30 to-transparent"></div>
@@ -152,38 +154,72 @@ const LandingPage = () => {
 
             {/* Previous sessions card */}
             <div
-              className="relative group"
+              className="relative group h-full"
               onMouseEnter={() => setIsHoveringPrevious(true)}
               onMouseLeave={() => setIsHoveringPrevious(false)}
             >
-              <Card className="h-64 bg-white/80 backdrop-blur border-2 border-slate-100 rounded-2xl overflow-hidden transition-all duration-500 shadow-lg hover:shadow-xl hover:border-slate-300 hover:scale-[1.02]">
+              <Card className="h-[320px] bg-white/80 backdrop-blur border-2 border-slate-100 rounded-2xl overflow-hidden transition-all duration-500 shadow-lg hover:shadow-xl hover:border-slate-300 hover:scale-[1.02]">
                 <CardContent className="p-0 h-full">
-                  <div className="h-full flex flex-col justify-between p-6">
-                    <div>
+                  <div className="flex flex-col h-full p-6">
+                    <div className="flex-grow">
                       <div className="mb-4 p-3 bg-slate-100 rounded-full w-14 h-14 flex items-center justify-center">
                         <History className="h-8 w-8 text-slate-700" />
                       </div>
-                      <h2 className="text-2xl font-bold text-gray-800 mb-2">
+                      <h2 className="text-2xl font-bold text-gray-800 mb-3">
                         Previous Sessions
                       </h2>
-                      <p className="text-gray-600">
-                        Continue from where you left off.
+                      <p className="text-gray-600 leading-relaxed">
+                        Continue from where you left off and track your learning progress.
                       </p>
                     </div>
-                    <Button
-                      className="mt-4 text-white bg-gradient-to-r from-slate-600 to-blue-700 hover:from-slate-700 hover:to-blue-800 group-hover:scale-105 transition-all duration-300 flex items-center justify-center"
-                      onClick={() => router.push("/sessions")}
-                    >
-                      View Sessions
-                      <ChevronRight
-                        className={`ml-2 h-5 w-5 transition-transform duration-300 ${
-                          isHoveringPrevious ? "transform translate-x-1" : ""
-                        }`}
-                      />
-                    </Button>
+                    <div className="mt-6">
+                      <Button
+                        className="w-full text-white bg-gradient-to-r from-slate-600 to-blue-700 hover:from-slate-700 hover:to-blue-800 group-hover:scale-105 transition-all duration-300 flex items-center justify-center"
+                        onClick={() => router.push("/sessions")}
+                      >
+                        View Sessions
+                        <ChevronRight
+                          className={`ml-2 h-5 w-5 transition-transform duration-300 ${
+                            isHoveringPrevious ? "transform translate-x-1" : ""
+                          }`}
+                        />
+                      </Button>
+                    </div>
                   </div>
                   {/* Background decoration */}
                   <div className="absolute top-0 right-0 h-full w-1/3 bg-gradient-to-l from-slate-100/30 to-transparent"></div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Code Mentor card */}
+            <div className="relative group h-full">
+              <Card className="h-[320px] bg-white/80 backdrop-blur border-2 border-purple-100 rounded-2xl overflow-hidden transition-all duration-500 shadow-lg hover:shadow-xl hover:border-purple-300 hover:scale-[1.02]">
+                <CardContent className="p-0 h-full">
+                  <div className="flex flex-col h-full p-6">
+                    <div className="flex-grow">
+                      <div className="mb-4 p-3 bg-purple-100 rounded-full w-14 h-14 flex items-center justify-center">
+                        <Brain className="h-8 w-8 text-purple-700" />
+                      </div>
+                      <h2 className="text-2xl font-bold text-gray-800 mb-3">
+                        Code Mentor
+                      </h2>
+                      <p className="text-gray-600 leading-relaxed">
+                        Analyze, understand, and visualize your Python code with AI guidance.
+                      </p>
+                    </div>
+                    <div className="mt-6">
+                      <Button
+                        className="w-full text-white bg-gradient-to-r from-purple-600 to-indigo-700 hover:from-purple-700 hover:to-indigo-800 group-hover:scale-105 transition-all duration-300 flex items-center justify-center"
+                        onClick={() => router.push("/code-mentor")}
+                      >
+                        Start Coding
+                        <ChevronRight className="ml-2 h-5 w-5 transition-transform duration-300" />
+                      </Button>
+                    </div>
+                  </div>
+                  {/* Background decoration */}
+                  <div className="absolute top-0 right-0 h-full w-1/3 bg-gradient-to-l from-purple-100/30 to-transparent"></div>
                 </CardContent>
               </Card>
             </div>
@@ -195,7 +231,7 @@ const LandingPage = () => {
               Supercharge Your Study Sessions
             </h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
               <Card className="bg-white/80 backdrop-blur border-2 border-blue-100 rounded-xl overflow-hidden transition-all duration-300 hover:shadow-lg hover:scale-[1.02]">
                 <CardContent className="p-6">
                   <div className="flex flex-col items-center text-center">
@@ -242,6 +278,23 @@ const LandingPage = () => {
                     <p className="text-gray-600">
                       Visualize your learning journey with detailed analytics
                       and track your improvement over time.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-white/80 backdrop-blur border-2 border-purple-100 rounded-xl overflow-hidden transition-all duration-300 hover:shadow-lg hover:scale-[1.02]">
+                <CardContent className="p-6">
+                  <div className="flex flex-col items-center text-center">
+                    <div className="p-3 bg-purple-100 rounded-full mb-4">
+                      <Brain className="h-8 w-8 text-purple-700" />
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-800 mb-2">
+                      Code Mentor
+                    </h3>
+                    <p className="text-gray-600">
+                      Get AI-powered code analysis, explanations, and visual
+                      flowcharts to understand your Python programs better.
                     </p>
                   </div>
                 </CardContent>
@@ -325,36 +378,57 @@ const LandingPage = () => {
             </div>
           </div>
 
-          {/* Testimonial */}
-          <div className="mb-16">
-            <Card className="bg-gradient-to-r from-blue-700 to-slate-800 text-white rounded-2xl overflow-hidden shadow-xl">
-              <CardContent className="p-8">
-                <div className="flex flex-col items-center text-center">
-                  <h3 className="text-2xl font-bold mb-4">
-                    "Fanar Al-Ma3rfa transformed my learning experience!"
-                  </h3>
-                  <p className="text-lg mb-6 max-w-2xl">
-                    I used to struggle organizing my study materials and staying
-                    focused. With Fanar Al-Ma3rfa, everything is in one place and the
-                    AI-generated quizzes help me retain information much better.
-                  </p>
-                  <div className="flex items-center mt-2">
-                    <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mr-3">
+          {/* Testimonials */}
+                <div className="mb-16">
+                <Card className="bg-gradient-to-r from-blue-700 to-slate-800 text-white rounded-2xl overflow-hidden shadow-xl">
+                  <CardContent className="p-8">
+                  <div className="flex flex-col items-center text-center">
+                    <h3 className="text-2xl font-bold mb-4">
+                    "Fanar Al-Ma3rfa transformed our learning experience!"
+                    </h3>
+                    <p className="text-lg mb-6 max-w-2xl">
+                    We used to struggle organizing our study materials and staying
+                    focused. With Fanar Al-Ma3rfa, everything is in one place
+                    and the AI-generated quizzes help us retain information much
+                    better.
+                    </p>
+                    <div className="flex items-center justify-center space-x-8 mt-2">
+                    <div className="flex items-center">
+                      <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mr-3">
                       <span className="text-xl font-bold">TF</span>
-                    </div>
-                    <div className="text-left">
-                      <p className="font-bold">Names</p>
+                      </div>
+                      <div className="text-left">
+                      <p className="font-bold">Taha Al-Farawati</p>
                       <p className="text-sm opacity-80">DSAI Student</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mr-3">
+                      <span className="text-xl font-bold">AH</span>
+                      </div>
+                      <div className="text-left">
+                      <p className="font-bold">Najla Zuhir</p>
+                      <p className="text-sm opacity-80">DSAI Student</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center">
+                      <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mr-3">
+                      <span className="text-xl font-bold">PP</span>
+                      </div>
+                      <div className="text-left">
+                      <p className="font-bold">Parvathy Premkumar</p>
+                      <p className="text-sm opacity-80">DSAI Student</p>
+                      </div>
+                    </div>
                     </div>
                   </div>
+                  </CardContent>
+                </Card>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </div>
+              </div>
+              </div>
 
-      {/* Create New Session Modal */}
+              {/* Create New Session Modal
       {/* Create New Session Modal */}
       <AlertDialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
         <AlertDialogContent className="bg-white max-w-xl rounded-2xl border-0 shadow-xl p-0 overflow-hidden">

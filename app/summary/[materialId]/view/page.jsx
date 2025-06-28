@@ -449,10 +449,10 @@ const SummaryViewPage = () => {
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white flex flex-col items-center justify-center p-6">
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6">
         <div className="text-center">
-          <Loader className="h-12 w-12 text-rose-600 animate-spin mx-auto mb-4" />
-          <h2 className="text-xl font-medium text-gray-800">
+          <Loader className="h-12 w-12 text-[#2563eb] animate-spin mx-auto mb-4" />
+          <h2 className="text-xl font-medium text-[#223366]">
             Loading summary...
           </h2>
         </div>
@@ -463,16 +463,16 @@ const SummaryViewPage = () => {
   // Error state
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white flex flex-col items-center justify-center p-6">
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6">
         <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full text-center">
-          <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-medium text-gray-800 mb-2">
+          <AlertCircle className="h-16 w-16 text-[#2563eb] mx-auto mb-4" />
+          <h2 className="text-xl font-medium text-[#223366] mb-2">
             Error Loading Summary
           </h2>
-          <p className="text-gray-600 mb-6">{error}</p>
+          <p className="text-[#223366] mb-6">{error}</p>
           <Button
             onClick={() => router.push(`/materials/${materialId}`)}
-            className="bg-gradient-to-r from-rose-600 to-pink-600 text-white"
+            className="bg-gradient-to-r from-[#7eb6ff] to-[#2563eb] text-white font-bold border border-[#7eb6ff] shadow-lg transition-transform duration-200 hover:-translate-y-1 hover:shadow-2xl hover:from-[#2563eb] hover:to-[#7eb6ff] focus:ring-2 focus:ring-[#2563eb] focus:ring-offset-2"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Material
@@ -485,18 +485,18 @@ const SummaryViewPage = () => {
   // If no summary found
   if (!summary) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white flex flex-col items-center justify-center p-6">
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6">
         <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full text-center">
-          <HelpCircle className="h-16 w-16 text-amber-500 mx-auto mb-4" />
-          <h2 className="text-xl font-medium text-gray-800 mb-2">
+          <HelpCircle className="h-16 w-16 text-[#fbbf24] mx-auto mb-4" />
+          <h2 className="text-xl font-medium text-[#223366] mb-2">
             Summary Not Found
           </h2>
-          <p className="text-gray-600 mb-6">
+          <p className="text-[#223366] mb-6">
             The summary you're looking for could not be found.
           </p>
           <Button
             onClick={() => router.push(`/materials/${materialId}`)}
-            className="bg-gradient-to-r from-rose-600 to-pink-600 text-white"
+            className="bg-gradient-to-r from-[#7eb6ff] to-[#2563eb] text-white font-bold border border-[#7eb6ff] shadow-lg transition-transform duration-200 hover:-translate-y-1 hover:shadow-2xl hover:from-[#2563eb] hover:to-[#7eb6ff] focus:ring-2 focus:ring-[#2563eb] focus:ring-offset-2"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Material
@@ -507,13 +507,13 @@ const SummaryViewPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white flex flex-col p-6 md:p-10">
+    <div className="min-h-screen bg-white flex flex-col p-6 md:p-10">
       <div className="max-w-4xl w-full mx-auto print:max-w-none print:w-full">
         {/* Back button - hide when printing */}
         <Button
           variant="ghost"
           onClick={() => router.push(`/summary/${materialId}/list`)}
-          className="mb-6 text-gray-600 hover:text-gray-900 hover:bg-gray-100 print:hidden"
+          className="mb-6 text-[#223366] hover:text-[#142042] hover:bg-[#eaf0fa] print:hidden"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Summary List
@@ -523,17 +523,17 @@ const SummaryViewPage = () => {
         <div className="mb-6 print:mb-10">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-800 print:text-2xl">
+              <h1 className="text-2xl md:text-3xl font-bold text-[#223366] print:text-2xl">
                 {summary.title}
               </h1>
-              <p className="text-gray-600">
+              <p className="text-[#223366]">
                 Summary for{" "}
                 <span className="font-medium">{summary.material?.title}</span>
               </p>
             </div>
             <div className="md:text-right print:hidden">
-              <div className="text-sm text-gray-600">
-                Created:{" "}
+              <div className="text-sm text-[#223366]">
+                Created: {" "}
                 {new Date(summary.createdAt).toLocaleDateString("en-US", {
                   year: "numeric",
                   month: "long",
@@ -549,7 +549,7 @@ const SummaryViewPage = () => {
           <Button
             variant="outline"
             onClick={handleCopyToClipboard}
-            className="flex items-center gap-2 no-loading"
+            className="flex items-center gap-2 no-loading border-[#b3c6e0] text-[#223366]"
           >
             <Copy className="h-4 w-4" />
             Copy
@@ -557,14 +557,14 @@ const SummaryViewPage = () => {
           <Button
             variant="outline"
             onClick={handlePrint}
-            className="flex items-center gap-2 no-loading"
+            className="flex items-center gap-2 no-loading border-[#b3c6e0] text-[#223366]"
           >
             <Printer className="h-4 w-4" />
             Print
           </Button>
           <Button
             variant="outline"
-            className="flex items-center gap-2 no-loading"
+            className="flex items-center gap-2 no-loading border-[#b3c6e0] text-[#223366]"
             onClick={handleShare}
           >
             <Share2 className="h-4 w-4" />
@@ -579,14 +579,15 @@ const SummaryViewPage = () => {
           </Button>
           <Button
             variant="outline"
-            className="flex items-center gap-2 no-loading"
+            className="flex items-center gap-2 no-loading border-[#b3c6e0] text-[#223366]"
             onClick={handleDownload}
           >
             <Download className="h-4 w-4" />
             Download
           </Button>
-        </div>        {/* Summary content card */}
-        <Card className="bg-white shadow-md mb-8 print:shadow-none print:border-0">
+        </div>
+        {/* Summary content card */}
+        <Card className="bg-[#eaf0fa] shadow-md mb-8 print:shadow-none print:border-0 border border-[#b3c6e0]">
           <CardContent className="p-8 print:p-0">
             <div className="prose max-w-none">
               <ReactMarkdown
@@ -602,13 +603,13 @@ const SummaryViewPage = () => {
 
         {/* Cultural Example section - only show if example exists */}
         {summary.example && (
-          <Card className="bg-gradient-to-br from-amber-50 to-orange-50 shadow-md mb-8 print:shadow-none print:border-0">
+          <Card className="bg-gradient-to-br from-[#eaf0fa] to-[#b3c6e0] shadow-md mb-8 print:shadow-none print:border-0 border border-[#b3c6e0]">
             <CardHeader>
-              <CardTitle className="flex items-center text-amber-800">
+              <CardTitle className="flex items-center text-[#2563eb]">
                 <Sparkles className="h-5 w-5 mr-2" />
                 Cultural Context Example
               </CardTitle>
-              <CardDescription className="text-amber-700">
+              <CardDescription className="text-[#223366]">
                 A practical example rooted in Qatari/GCC culture to illustrate the key concepts
               </CardDescription>
             </CardHeader>

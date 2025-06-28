@@ -236,7 +236,7 @@ const MaterialDetailsPage = () => {
       icon: <Brain className="h-8 w-8 text-white" />,
       color: "from-blue-500 to-cyan-600",
       disabled: material?.status !== "Ready" && material?.status !== "ready",
-      path: `/chat/${materialId}/list`,
+      path: `/chat/${materialId}`,
     },
     {
       title: "View Flashcards",
@@ -263,7 +263,7 @@ const MaterialDetailsPage = () => {
       icon: <Code className="h-8 w-8 text-white" />,
       color: "from-blue-500 to-indigo-600",
       disabled: false,
-      path: `/code-mentor`,
+      path: `/code-mentor/${materialId}`,
     },
     {
       title: "Audio Lectures",
